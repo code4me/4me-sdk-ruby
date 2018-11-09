@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 2.0.0'
   spec.authors               = ['4me']
   spec.email                 = %q{developers@4me.com}
-  spec.description           = %q{SDK for accessing the 4me}
+  spec.description           = %q{SDK for accessing the 4me API}
   spec.summary               = %q{The official 4me SDK for Ruby. Provides easy access to the APIs found at https://developer.4me.com}
   spec.homepage              = %q{https://github.com/code4me/4me-sdk-ruby}
   spec.license               = 'MIT'

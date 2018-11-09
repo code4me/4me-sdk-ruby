@@ -51,7 +51,7 @@ All options available:
 
 ### Override
 
-Each time an 4me SDK Client is instantiated it is possible to override the [global configuration](#global-configuration) like so:
+Each time an 4me SDK Client is instantiated it is possible to override the [global configuration](#global) like so:
 
 ```
 client = Sdk4me::Client.new(account: 'trusted-sandbox', source: 'my special integration')
@@ -304,9 +304,9 @@ Note that blocking for the export to finish is recommended as you will get direc
 
 ### Blocking
 
-By default all actions on the 4me SDK Client will block until the 4me API is accessible, see the _max_retry_time_ option in the [configuration](#global-configuration). This is especially helpfull for flaky internet connections.
+By default all actions on the 4me SDK Client will block until the 4me API is accessible, see the _max_retry_time_ option in the [configuration](#configuration). This is especially helpfull for flaky internet connections.
 
-By setting the _block_at_rate_limit_ to `true` in the [configuration](#global-configuration) all actions will also block in case the [rate limit](http://developer.4me.com/v1/#rate-limiting) is reached. The action is retried every 5 minutes until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted again, which might take up to 1 hour.
+By setting the _block_at_rate_limit_ to `true` in the [configuration](#configuration) all actions will also block in case the [rate limit](http://developer.4me.com/v1/#rate-limiting) is reached. The action is retried every 5 minutes until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted again, which might take up to 1 hour.
 
 
 ### Exception handling
