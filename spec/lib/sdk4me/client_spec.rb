@@ -402,6 +402,14 @@ describe Sdk4me::Client do
       expect(response[:token]).to eq('68ef5ef0f64c0')
     end
 
+    it 'should export with locale' do
+      stub_request(:post, 'https://api.4me.com/v1/export').with(basic_auth: ['secret', 'x']).with(body: {type: 'translations', locale: 'nl'}).to_return(body: {token: '68ef5ef0f64c0'}.to_json)
+      expect_log("Export for 'translations' successfully queued with token '68ef5ef0f64c0'.")
+
+      response = @client.export('translations', nil, nil, 'nl')
+      expect(response[:token]).to eq('68ef5ef0f64c0')
+    end
+
     it 'should wait for the export to complete' do
       stub_request(:post, 'https://api.4me.com/v1/export').with(basic_auth: ['secret', 'x']).with(body: {type: 'people'}).to_return(body: {token: '68ef5ef0f64c0'}.to_json)
       progress_stub = stub_request(:get, 'https://api.4me.com/v1/export/68ef5ef0f64c0').with(basic_auth: ['secret', 'x'])

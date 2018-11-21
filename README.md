@@ -309,6 +309,14 @@ By default all actions on the 4me SDK Client will block until the 4me API is acc
 By setting the _block_at_rate_limit_ to `true` in the [configuration](#configuration) all actions will also block in case the [rate limit](http://developer.4me.com/v1/#rate-limiting) is reached. The action is retried every 5 minutes until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted again, which might take up to 1 hour.
 
 
+### Translations
+
+When exporting translations, the _locale_ parameter is required:
+
+```
+  response = Itrp::Client.new.export('translations', nil, false, 'nl')
+```
+
 ### Exception handling
 
 The standard methods `get`, `post`, `put` and `delete` will always return a Response with an [error message](http://developer.4me.com/v1/#http-status-codes) in case something went wrong.

@@ -151,10 +151,12 @@ module Sdk4me
     # @param types: The types to export, e.g. person, organization, people_contact_details
     # @param from: Retrieve all files since a given data and time
     # @param block_until_completed: Set to true to monitor the export progress
+    # @param locale: Required for translations export
     # @raise Sdk4me::Exception in case the export progress could not be monitored
-    def export(types, from = nil, block_until_completed = false)
+    def export(types, from = nil, block_until_completed = false, locale = nil)
       data = {type: [types].flatten.join(',')}
       data[:from] = from unless from.blank?
+      data[:locale] = locale unless locale.blank?
       response = post('/export', data)
       if response.valid?
         if response.raw.code.to_s == '204'
