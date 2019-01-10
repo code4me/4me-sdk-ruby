@@ -40,9 +40,10 @@ All options available:
 * _max_retry_time_: maximum nr of seconds to wait for server to respond (default = 5400 = 1.5 hours)<br/>
   The sleep time between retries starts at 2 seconds and doubles after each retry, i.e.
   2, 6, 18, 54, 162, 486, 1458, 4374, 13122, ... seconds.<br/>
-  One retry will always be performed unless you set the value to -1.
+  Set to 0 to prevent retries.
 * _read_timeout_:   [HTTP read timeout](http://ruby-doc.org/stdlib-2.0.0/libdoc/net/http/rdoc/Net/HTTP.html#method-i-read_timeout-3D) in seconds (default = 25)
-* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted, default: `false`
+* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted, default: `false`<br/>
+  The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_retry_time_ the request will not be blocked and the throttled response is returned. 
 * _proxy_host_:     Define in case HTTP traffic needs to go through a proxy
 * _proxy_port_:     Port of the proxy, defaults to 8080
 * _proxy_user_:     Proxy user

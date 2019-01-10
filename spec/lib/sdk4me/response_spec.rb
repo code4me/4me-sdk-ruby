@@ -93,10 +93,10 @@ describe Sdk4me::Response do
       stub_request(:get, 'https://api.4me.com/v1/organizations').with(basic_auth: ['secret', 'x']).to_return(body: '==$$!invalid')
       response = @client.get('organizations')
 
-      message = "Invalid JSON - 765: unexpected token at '==$$!invalid' for:\n#{response.body}"
-      expect(response.json[:message]).to eq(message)
-      expect(response.json['message']).to eq(message)
-      expect(response.message).to eq(message)
+      message = "unexpected token at '==$$!invalid' for:\n#{response.body}"
+      expect(response.json[:message]).to include(message)
+      expect(response.json['message']).to include(message)
+      expect(response.message).to include(message)
     end
 
     it 'should have a blank message when single record is succesfully retrieved' do

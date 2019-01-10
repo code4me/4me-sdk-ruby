@@ -298,14 +298,25 @@ module Sdk4me
   end
 
   module SendWithRateLimitBlock
-    # Wraps the _send method with retries when the server does not responsd, see +initialize+ option +:rate_limit_block+
+    # Wraps the _send method with retries when the server does not respond, see +initialize+ option +:rate_limit_block+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
       return super(request, domain, port, ssl) unless option(:block_at_rate_limit)
       now = Time.now
+      timed_out = false
+      # respect the max_retry_time with fallback to max 1 hour and 1 minute wait time
+      max_retry_time = option(:max_retry_time) > 0 ? option(:max_retry_time) : 3660
       begin
         _response = super(request, domain, port, ssl)
-        @logger.warn { "Request throttled, trying again in 5 minutes: #{_response.message}" } and sleep(300) if _response.throttled?
-      end while _response.throttled? && (Time.now - now) < 3660 # max 1 hour and 1 minute
+        if _response.throttled?
+          retry_after = _response.retry_after == 0 ? 300 : [_response.retry_after, 2].max
+          if (Time.now - now + retry_after) < max_retry_time
+            @logger.warn { "Request throttled, trying again in #{retry_after} seconds: #{_response.message}" }
+            sleep(retry_after)
+          else
+            timed_out = true
+          end
+        end
+      end while _response.throttled? && !timed_out
       _response
     end
   end
@@ -314,15 +325,24 @@ module Sdk4me
   module SendWithRetries
     # Wraps the _send method with retries when the server does not respond, see +initialize+ option +:retries+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
+      return super(request, domain, port, ssl) unless option(:max_retry_time) > 0
       retries = 0
-      sleep_time = 2
-      total_retry_time = 0
+      sleep_time = 1
+      now = Time.now
+      timed_out = false
       begin
         _response = super(request, domain, port, ssl)
-        @logger.warn { "Request failed, retry ##{retries += 1} in #{sleep_time} seconds: #{_response.message}" } and sleep(sleep_time) if (_response.raw.code.to_s != '204' && _response.empty?) && option(:max_retry_time) > 0
-        total_retry_time += sleep_time
-        sleep_time *= 2
-      end while (_response.raw.code.to_s != '204' && _response.empty?) && total_retry_time < option(:max_retry_time)
+        # throttling is handled separately
+        if !_response.success? && !_response.throttled?
+          sleep_time *= 2
+          if (Time.now - now + sleep_time) < option(:max_retry_time)
+            @logger.warn { "Request failed, retry ##{retries += 1} in #{sleep_time} seconds: #{_response.message}" }
+            sleep(sleep_time)
+          else
+            timed_out = true
+          end
+        end
+      end while !_response.success? && !_response.throttled? && !timed_out
       _response
     end
   end
