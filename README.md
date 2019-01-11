@@ -37,13 +37,14 @@ All options available:
 * _api_token_:      (**required**) The [4me API token](http://developer.4me.com/v1/#api-tokens)
 * _account_:        Specify a [different account](http://developer.4me.com/v1/#multiple-accounts) to work with
 * _source_:         The [source](http://developer.4me.com/v1/general/source/) used when creating new records
-* _max_retry_time_: maximum nr of seconds to wait for server to respond (default = 5400 = 1.5 hours)<br/>
+* _max_retry_time_: maximum nr of seconds to retry a request on a failed response (default = 300 = 5 minutes)<br/>
   The sleep time between retries starts at 2 seconds and doubles after each retry, i.e.
-  2, 6, 18, 54, 162, 486, 1458, 4374, 13122, ... seconds.<br/>
+  2, 6, 18, 54, 162, 486, 1458, ... seconds.<br/>
   Set to 0 to prevent retries.
 * _read_timeout_:   [HTTP read timeout](http://ruby-doc.org/stdlib-2.0.0/libdoc/net/http/rdoc/Net/HTTP.html#method-i-read_timeout-3D) in seconds (default = 25)
-* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted, default: `false`<br/>
-  The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_retry_time_ the request will not be blocked and the throttled response is returned. 
+* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted, default: `true`<br/>
+  The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_throttle_time_ the request will not be blocked and the throttled response is returned. 
+* _max_throttle_time_: maximum nr of seconds to retry a request on a rate limiter (default = 3660 = 1 hour and 1 minute)<br/>
 * _proxy_host_:     Define in case HTTP traffic needs to go through a proxy
 * _proxy_port_:     Port of the proxy, defaults to 8080
 * _proxy_user_:     Proxy user
@@ -305,10 +306,17 @@ Note that blocking for the export to finish is recommended as you will get direc
 
 ### Blocking
 
-By default all actions on the 4me SDK Client will block until the 4me API is accessible, see the _max_retry_time_ option in the [configuration](#configuration). This is especially helpfull for flaky internet connections.
+When the currently used API token hits the [4me rate limiter](http://developer.4me.com/v1/#rate-limiting) a HTTP 429 response is returned that specifies after how many seconds the rate limit will be lifted.
 
-By setting the _block_at_rate_limit_ to `true` in the [configuration](#configuration) all actions will also block in case the [rate limit](http://developer.4me.com/v1/#rate-limiting) is reached. The action is retried every 5 minutes until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted again, which might take up to 1 hour.
+If that time lies within the _max_throttle_time_ the 4me SDK Client will wait and retry the action, if not, the throttled response will be returned. You can verify if a response was throttled using:
+```
+response = client.get('me')
+puts response.throttled?
+```
 
+By setting the _block_at_rate_limit_ to `false` in the [configuration](#configuration) the 4me SDK Client will never wait when a rate limit is hit.
+
+Note that 4me has different rate limiters. If the intention is to only wait when the short-burst (max 20 requests in 2 seconds) rate limiter is hit, you could set the _max_throttle_time_ to e.g. 5 seconds.
 
 ### Translations
 

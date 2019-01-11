@@ -300,16 +300,16 @@ module Sdk4me
   module SendWithRateLimitBlock
     # Wraps the _send method with retries when the server does not respond, see +initialize+ option +:rate_limit_block+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
-      return super(request, domain, port, ssl) unless option(:block_at_rate_limit)
-      now = Time.now
+      return super(request, domain, port, ssl) unless option(:block_at_rate_limit) && option(:max_throttle_time) > 0
+      now = nil
       timed_out = false
-      # respect the max_retry_time with fallback to max 1 hour and 1 minute wait time
-      max_retry_time = option(:max_retry_time) > 0 ? option(:max_retry_time) : 3660
       begin
         _response = super(request, domain, port, ssl)
+        now ||= Time.now
         if _response.throttled?
+          # if no Retry-After is not provided, the 4me server is very busy, wait 5 minutes
           retry_after = _response.retry_after == 0 ? 300 : [_response.retry_after, 2].max
-          if (Time.now - now + retry_after) < max_retry_time
+          if (Time.now - now + retry_after) < option(:max_throttle_time)
             @logger.warn { "Request throttled, trying again in #{retry_after} seconds: #{_response.message}" }
             sleep(retry_after)
           else
@@ -328,12 +328,12 @@ module Sdk4me
       return super(request, domain, port, ssl) unless option(:max_retry_time) > 0
       retries = 0
       sleep_time = 1
-      now = Time.now
+      now = nil
       timed_out = false
       begin
         _response = super(request, domain, port, ssl)
-        # throttling is handled separately
-        if !_response.success? && !_response.throttled?
+        now ||= Time.now
+        if _response.failure?
           sleep_time *= 2
           if (Time.now - now + sleep_time) < option(:max_retry_time)
             @logger.warn { "Request failed, retry ##{retries += 1} in #{sleep_time} seconds: #{_response.message}" }
@@ -342,7 +342,7 @@ module Sdk4me
             timed_out = true
           end
         end
-      end while !_response.success? && !_response.throttled? && !timed_out
+      end while _response.failure? && !timed_out
       _response
     end
   end

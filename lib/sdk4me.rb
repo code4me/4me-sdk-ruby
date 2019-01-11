@@ -14,10 +14,10 @@ module Sdk4me
     has :account, classes: String
     has :source, classes: String
 
-    has :max_retry_time, classes: Integer, default: 5400
+    has :max_retry_time, classes: Integer, default: 300
     has :read_timeout, classes: Integer, default: 25
-    has :block_at_rate_limit, classes: [TrueClass, FalseClass], default: false
-
+    has :block_at_rate_limit, classes: [TrueClass, FalseClass], default: true
+    has :max_throttle_time, classes: Integer, default: 3660
     has :proxy_host, classes: String
     has :proxy_port, classes: Integer, default: 8080
     has :proxy_user, classes: String

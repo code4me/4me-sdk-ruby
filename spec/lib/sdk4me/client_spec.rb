@@ -528,7 +528,7 @@ describe Sdk4me::Client do
       expect_log('Sending GET request to api.4me.com:443/v1/me', :debug )
       expect_log(%(Response:\n{\n  "name": "my name"\n}), :debug )
 
-      client = Sdk4me::Client.new(api_token: 'secret', block_at_rate_limit: true)
+      client = Sdk4me::Client.new(api_token: 'secret', block_at_rate_limit: true, max_retry_time: 500)
       allow(client).to receive(:sleep)
       response = client.get('me')
       expect(stub).to have_been_requested.times(2)

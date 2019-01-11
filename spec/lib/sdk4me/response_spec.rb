@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe Sdk4me::Response do
   before(:each) do
-    @client = Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1)
+    @client = Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1, block_at_rate_limit: false)
     @person_hash = {
         addresses:[],
         contacts:[ {id: 1365, label: 'work', telephone: '7139872946'} ],
@@ -22,7 +22,6 @@ describe Sdk4me::Response do
     stub_request(:get, 'https://api.4me.com/v1/me').with(basic_auth: ['secret', 'x']).to_return(body: @person_hash.to_json)
     @response_hash = @client.get('me')
 
-    @client = Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1)
     @people_array = [
         {id: 562, name: 'John', organization: { id: 20, name: 'SDK4ME Institute'}, site: {id: 14, name: 'IT Training Facility'} },
         {id: 560, name: 'Lucas', organization: { id: 20, name: 'SDK4ME Institute', office: { name: 'The Office'}}, site: {id: 14, name: 'IT Training Facility'} },

@@ -59,6 +59,11 @@ module Sdk4me
     end
     alias_method :success?, :valid?
 
+    # +true+ in case of a HTTP 5xx error
+    def failure?
+      !success? && (@response.code.to_s.blank? || @response.code.to_s =~ /5\d\d/)
+    end
+
     # retrieve a value from the resource
     # if the JSON value is an Array a array with the value for each resource will be given
     # @param keys: a single key or a key-path separated by comma
