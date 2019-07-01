@@ -283,7 +283,7 @@ module Sdk4me
       elsif '303' == response.raw.code.to_s
         @logger.debug { "Redirect: #{response.raw.header['Location']}" }
       else
-        @logger.error { "Request failed: #{response.message}" }
+        @logger.error { "#{request.method} request to #{domain}:#{port}#{request.path} failed: #{response.message}" }
       end
       response
     end

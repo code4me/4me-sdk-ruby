@@ -123,7 +123,7 @@ describe Sdk4me::Attachments do
       it 'should report an error when 4me confirmation fails' do
         stub_request(:post, 'https://itrp.s3.amazonaws.com/').with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: 'OK', status: 303, headers: {'Location' => 'https://mycompany.4me.com/s3_success?sig=99e82e8a046'})
         stub_request(:get, "https://api.4me.com/v1/s3_success?sig=99e82e8a046&key=#{@key}").with(basic_auth: ['secret', 'x']).to_return(body: {message: 'oops!'}.to_json)
-        expect_log('Request failed: oops!', :error)
+        expect_log('GET request to api.4me.com:443/v1/s3_success?sig=99e82e8a046&key=attachments%2F5%2Freqs%2F000%2F070%2F451%2Fzxxb4ot60xfd6sjg%2Fupload%2Etxt failed: oops!', :error)
         expect_log("Attachment upload failed: 4me confirmation s3_success?sig=99e82e8a046 for #{@key} failed: oops!", :error)
         expect(@attachments.send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", false)).to be_nil
       end
@@ -161,14 +161,14 @@ describe Sdk4me::Attachments do
 
       it 'should report an error when 4me upload fails' do
         stub_request(:post, 'https://api.4me.com/v1/attachments').with(basic_auth: ['secret', 'x']).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: {message: 'oops!'}.to_json)
-        expect_log('Request failed: oops!', :error)
+        expect_log('POST request to api.4me.com:443/v1/attachments failed: oops!', :error)
         expect_log("Attachment upload failed: 4me upload to https://api.4me.com/attachments for #{@key} failed: oops!", :error)
         expect(@attachments.send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", false)).to be_nil
       end
 
       it 'should raise an exception when 4me upload fails' do
         stub_request(:post, 'https://api.4me.com/v1/attachments').with(basic_auth: ['secret', 'x']).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: {message: 'oops!'}.to_json)
-        expect_log('Request failed: oops!', :error)
+        expect_log('POST request to api.4me.com:443/v1/attachments failed: oops!', :error)
         message = "Attachment upload failed: 4me upload to https://api.4me.com/attachments for #{@key} failed: oops!"
         expect{ @attachments.send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", true) }.to raise_error(::Sdk4me::UploadFailed, message)
       end

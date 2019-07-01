@@ -326,7 +326,7 @@ describe Sdk4me::Client do
       expect_log("Response:\n{\n  \"state\": \"processing\"\n}", :debug)
       expect_log("Import of '#{@fixture_dir}/people.csv' is processing. Checking again in 30 seconds.", :debug)
       expect_log('Sending GET request to api.4me.com:443/v1/import/68ef5ef0f64c0', :debug)
-      expect_log("Request failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/import/68ef5ef0f64c0'", :error)
+      expect_log("GET request to api.4me.com:443/v1/import/68ef5ef0f64c0 failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/import/68ef5ef0f64c0'", :error)
       expect_log('Sending GET request to api.4me.com:443/v1/import/68ef5ef0f64c0', :debug)
       expect_log("Response:\n{\n  \"state\": \"done\",\n  \"results\": {\n    \"errors\": 0,\n    \"updated\": 1,\n    \"created\": 1,\n    \"failures\": 0,\n    \"unchanged\": 0,\n    \"deleted\": 0\n  }\n}", :debug)
 
@@ -429,7 +429,7 @@ describe Sdk4me::Client do
       expect_log(%(Response:\n{\n  "state": "processing"\n}), :debug)
       expect_log("Export of 'people' is processing. Checking again in 30 seconds.", :debug)
       expect_log('Sending GET request to api.4me.com:443/v1/export/68ef5ef0f64c0', :debug)
-      expect_log("Request failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/export/68ef5ef0f64c0'", :error)
+      expect_log("GET request to api.4me.com:443/v1/export/68ef5ef0f64c0 failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/export/68ef5ef0f64c0'", :error)
       expect_log('Sending GET request to api.4me.com:443/v1/export/68ef5ef0f64c0', :debug)
       expect_log(%(Response:\n{\n  "state": "done",\n  "url": "https://download.example.com/export.zip?AWSAccessKeyId=12345"\n}), :debug)
 
@@ -467,7 +467,7 @@ describe Sdk4me::Client do
     it 'should not retry when max_retry_time = -1' do
       stub = stub_request(:get, 'https://api.4me.com/v1/me').with(basic_auth: ['secret', 'x']).to_raise(StandardError.new('network error'))
       expect_log('Sending GET request to api.4me.com:443/v1/me', :debug )
-      expect_log("Request failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/me'", :error)
+      expect_log("GET request to api.4me.com:443/v1/me failed: 500: No Response from Server - network error for 'api.4me.com:443/v1/me'", :error)
 
       client = Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1)
       response = client.get('me')
@@ -512,7 +512,7 @@ describe Sdk4me::Client do
     it 'should not block on rate limit when block_at_rate_limit is false' do
       stub = stub_request(:get, 'https://api.4me.com/v1/me').with(basic_auth: ['secret', 'x']).to_return(status: 429, body: {message: 'Too Many Requests'}.to_json)
       expect_log('Sending GET request to api.4me.com:443/v1/me', :debug )
-      expect_log("Request failed: 429: Too Many Requests", :error)
+      expect_log("GET request to api.4me.com:443/v1/me failed: 429: Too Many Requests", :error)
 
       client = Sdk4me::Client.new(api_token: 'secret', block_at_rate_limit: false)
       response = client.get('me')
