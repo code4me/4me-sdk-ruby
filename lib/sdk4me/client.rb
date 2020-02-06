@@ -211,7 +211,8 @@ module Sdk4me
     def expand_header(header = {})
       header = DEFAULT_HEADER.merge(header)
       header['X-4me-Account'] = option(:account) if option(:account)
-      header['AUTHORIZATION'] = 'Basic ' + ["#{option(:api_token)}:x"].pack('m*').gsub(/\s/, '')
+      token_and_password = option(:api_token).include?(':') ? option(:api_token) : "#{option(:api_token)}:x"
+      header['AUTHORIZATION'] = 'Basic ' + [token_and_password].pack('m*').gsub(/\s/, '')
       if option(:source)
         header['X-4me-Source'] = option(:source)
         header['HTTP_USER_AGENT'] = option(:source)

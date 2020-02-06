@@ -8,21 +8,64 @@ module Sdk4me
       @client = client
     end
 
-    # upload the attachments in :attachments to 4me and return the data with the uploaded attachment info
+    # upload the attachments and return the data with the uploaded attachment info
+    # Two flavours available
+    #  * data[:attachments]
+    #  * data[:note] containing text with '[attachment:/tmp/images/green_fuzz.jpg]'
     def upload_attachments!(path, data)
-      raise_exceptions = !!data.delete(:attachments_exception)
-      attachments = [data.delete(:attachments)].flatten.compact
-      return if attachments.empty?
-
-      # retrieve the upload configuration for this record from 4me
-      storage = @client.get(path =~ /\d+$/ ? path : "#{path}/new", {attachment_upload_token: true}, @client.send(:expand_header))[:storage_upload]
-      report_error("Attachments not allowed for #{path}", raise_exceptions) and return unless storage
-
-      # upload each attachment and store the {key, filesize} has in the note_attachments parameter
-      data[attachments_field(path)] = attachments.map {|attachment| upload_attachment(storage, attachment, raise_exceptions) }.compact.to_json
+      upload_options = {
+        raise_exceptions: !!data.delete(:attachments_exception),
+        attachments_field: attachments_field(path),
+      }
+      uploaded_attachments = upload_normal_attachments!(path, data, upload_options)
+      uploaded_attachments += upload_inline_attachments!(path, data, upload_options)
+      # jsonify the attachments, if any were uploaded
+      data[upload_options[:attachments_field]] = uploaded_attachments.compact.to_json if uploaded_attachments.compact.any?
     end
 
     private
+
+    # upload the attachments in :attachments to 4me and return the data with the uploaded attachment info
+    def upload_normal_attachments!(path, data, upload_options)
+      attachments = [data.delete(:attachments)].flatten.compact
+      return [] if attachments.empty?
+
+      upload_options[:storage] ||= storage(path, upload_options[:raise_exceptions])
+      return [] unless upload_options[:storage]
+
+      attachments.map do |attachment|
+        upload_attachment(upload_options[:storage], attachment, upload_options[:raise_exceptions])
+      end
+    end
+
+    INLINE_ATTACHMENT_REGEXP = /\[attachment:([^\]]+)\]/.freeze
+    # upload any '[attachment:/tmp/images/green_fuzz.jpg]' in :note text field to 4me as inline attachment and add the s3 key to the text
+    def upload_inline_attachments!(path, data, upload_options)
+      text_field = upload_options[:attachments_field].to_s.gsub('_attachments', '').to_sym
+      return [] unless (data[text_field] || '') =~ INLINE_ATTACHMENT_REGEXP
+
+      upload_options[:storage] ||= storage(path, upload_options[:raise_exceptions])
+      return [] unless upload_options[:storage]
+
+      attachments = []
+      data[text_field] = data[text_field].gsub(INLINE_ATTACHMENT_REGEXP) do |full_match|
+        attachment_details = upload_attachment(upload_options[:storage], $~[1], upload_options[:raise_exceptions])
+        if attachment_details
+          attachments << attachment_details.merge(inline: true)
+          "![](#{attachment_details[:key]})" # magic markdown for inline attachments
+        else
+          full_match
+        end
+      end
+      attachments
+    end
+
+    def storage(path, raise_exceptions)
+      # retrieve the upload configuration for this record from 4me
+      storage = @client.get(path =~ /\d+$/ ? path : "#{path}/new", {attachment_upload_token: true}, @client.send(:expand_header))[:storage_upload]
+      report_error("Attachments not allowed for #{path}", raise_exceptions) unless storage
+      storage
+    end
 
     def attachments_field(path)
       case path

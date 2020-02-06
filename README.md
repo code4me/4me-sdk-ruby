@@ -213,6 +213,14 @@ response = Sdk4me::Client.new.put('requests/416621', {
 })
 ```
 
+It is also possible to add inline attachments as follows:
+```
+response = Sdk4me::Client.new.put('requests/416621', {
+  note: 'Here is some inspiration for you: [attachment:/tmp/images/puppy.png]'
+})
+```
+Note that only images are accepted as inline attachments.
+
 If an attachment upload fails, the errors are logged but the `post` or `put` request will still be sent to 4me without the
 failed attachments. To receive exceptions add `attachments_exception: true` to the data.
 

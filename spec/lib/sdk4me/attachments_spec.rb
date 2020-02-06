@@ -8,69 +8,135 @@ describe Sdk4me::Attachments do
   end
 
   context 'upload_attachments!' do
-    it 'should not do anything when no :attachments are present' do
-      expect(@attachments.upload_attachments!('/requests', {status: :in_progress})).to be_nil
-    end
+    context 'normal' do
+      it 'should not do anything when no :attachments are present' do
+        expect(@attachments.upload_attachments!('/requests', {status: :in_progress})).to be_nil
+      end
 
-    it 'should not do anything when :attachments is nil' do
-      expect(@attachments.upload_attachments!('/requests', {attachments: nil})).to be_nil
-    end
+      it 'should not do anything when :attachments is nil' do
+        expect(@attachments.upload_attachments!('/requests', {attachments: nil})).to be_nil
+      end
 
-    it 'should not do anything when :attachments is empty' do
-      expect(@attachments.upload_attachments!('/requests', {attachments: []})).to be_nil
-      expect(@attachments.upload_attachments!('/requests', {attachments: [nil]})).to be_nil
-    end
+      it 'should not do anything when :attachments is empty' do
+        expect(@attachments.upload_attachments!('/requests', {attachments: []})).to be_nil
+        expect(@attachments.upload_attachments!('/requests', {attachments: [nil]})).to be_nil
+      end
 
-    it 'should show a error if no attachment may be uploaded' do
-      stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
-      expect_log('Attachments not allowed for /sites/1', :error)
-      expect(@attachments.upload_attachments!('/sites/1', {attachments: ['file1.png']})).to be_nil
-    end
+      it 'should show a error if no attachment may be uploaded' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
+        expect_log('Attachments not allowed for /sites/1', :error)
+        expect(@attachments.upload_attachments!('/sites/1', {attachments: ['file1.png']})).to be_nil
+      end
 
-    it 'should raise an exception if no attachment may be uploaded' do
-      stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
-      message = 'Attachments not allowed for /sites/1'
-      expect{ @attachments.upload_attachments!('/sites/1', {attachments: ['file1.png'], attachments_exception: true}) }.to raise_error(::Sdk4me::UploadFailed, message)
-    end
+      it 'should raise an exception if no attachment may be uploaded' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
+        message = 'Attachments not allowed for /sites/1'
+        expect{ @attachments.upload_attachments!('/sites/1', {attachments: ['file1.png'], attachments_exception: true}) }.to raise_error(::Sdk4me::UploadFailed, message)
+      end
 
-    it 'should add /new to the path for new records' do
-      stub_request(:get, 'https://api.4me.com/v1/sites/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {missing: 'storage'}.to_json)
-      expect_log('Attachments not allowed for /sites', :error)
-      expect(@attachments.upload_attachments!('/sites', {attachments: ['file1.png']})).to be_nil
-    end
+      it 'should add /new to the path for new records' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {missing: 'storage'}.to_json)
+        expect_log('Attachments not allowed for /sites', :error)
+        expect(@attachments.upload_attachments!('/sites', {attachments: ['file1.png']})).to be_nil
+      end
 
-    [ [:requests,          :note],
-      [:problems,          :note],
-      [:contracts,         :remarks],
-      [:cis,               :remarks],
-      [:flsas,             :remarks],
-      [:slas,              :remarks],
-      [:service_instances, :remarks],
-      [:service_offerings, :summary],
-      [:any_other_model,   :note]].each do |model, attribute|
+      [ [:requests,          :note],
+        [:problems,          :note],
+        [:contracts,         :remarks],
+        [:cis,               :remarks],
+        [:flsas,             :remarks],
+        [:slas,              :remarks],
+        [:service_instances, :remarks],
+        [:service_offerings, :summary],
+        [:any_other_model,   :note]].each do |model, attribute|
 
-      it "should replace :attachments with :#{attribute}_attachments after upload at /#{model}" do
-        stub_request(:get, "https://api.4me.com/v1/#{model}/new?attachment_upload_token=true").with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
-        expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', false).ordered{ 'uploaded file1.png' }
-        expect(@attachments).to receive(:upload_attachment).with('conf', 'file2.zip', false).ordered{ 'uploaded file2.zip' }
-        data = {leave: 'me alone', attachments: %w(file1.png file2.zip)}
-        @attachments.upload_attachments!("/#{model}", data)
+        it "should replace :attachments with :#{attribute}_attachments after upload at /#{model}" do
+          stub_request(:get, "https://api.4me.com/v1/#{model}/new?attachment_upload_token=true").with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
+          expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', false).ordered{ 'uploaded file1.png' }
+          expect(@attachments).to receive(:upload_attachment).with('conf', 'file2.zip', false).ordered{ 'uploaded file2.zip' }
+          data = {leave: 'me alone', attachments: %w(file1.png file2.zip)}
+          @attachments.upload_attachments!("/#{model}", data)
+          expect(data[:attachments]).to be_nil
+          expect(data[:leave]).to eq('me alone')
+          expect(data[:"#{attribute}_attachments"]).to eq(['uploaded file1.png', 'uploaded file2.zip'].to_json)
+        end
+      end
+
+      it 'should set raise_exception flag to true when :attachments_exception is set' do
+        stub_request(:get, 'https://api.4me.com/v1/requests/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
+        expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', true).ordered{ 'uploaded file1.png' }
+        data = {leave: 'me alone', attachments: 'file1.png', attachments_exception: true}
+        @attachments.upload_attachments!('/requests', data)
         expect(data[:attachments]).to be_nil
+        expect(data[:attachments_exception]).to be_nil
         expect(data[:leave]).to eq('me alone')
-        expect(data[:"#{attribute}_attachments"]).to eq(['uploaded file1.png', 'uploaded file2.zip'].to_json)
+        expect(data[:note_attachments]).to eq(['uploaded file1.png'].to_json)
       end
     end
 
-    it 'should set raise_exception flag to true when :attachments_exception is set' do
-      stub_request(:get, 'https://api.4me.com/v1/requests/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
-      expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', true).ordered{ 'uploaded file1.png' }
-      data = {leave: 'me alone', attachments: 'file1.png', attachments_exception: true}
-      @attachments.upload_attachments!('/requests', data)
-      expect(data[:attachments]).to be_nil
-      expect(data[:attachments_exception]).to be_nil
-      expect(data[:leave]).to eq('me alone')
-      expect(data[:note_attachments]).to eq(['uploaded file1.png'].to_json)
+    context 'inline' do
+      it 'should not do anything when no [attachment:...] is present in the note' do
+        expect(@attachments.upload_attachments!('/requests', {note: '[attachmen:/type]'})).to be_nil
+      end
+
+      it 'should not do anything when attachment is empty' do
+        expect(@attachments.upload_attachments!('/requests', {note: '[attachment:]'})).to be_nil
+      end
+
+      it 'should show a error if no attachment may be uploaded' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
+        expect_log('Attachments not allowed for /sites/1', :error)
+        expect(@attachments.upload_attachments!('/sites/1', {note: '[attachment:file1.png]'})).to be_nil
+      end
+
+      it 'should raise an exception if no attachment may be uploaded' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {name: 'site 1'}.to_json)
+        message = 'Attachments not allowed for /sites/1'
+        expect{ @attachments.upload_attachments!('/sites/1', {note: '[attachment:file1.png]', attachments_exception: true}) }.to raise_error(::Sdk4me::UploadFailed, message)
+      end
+
+      it 'should add /new to the path for new records' do
+        stub_request(:get, 'https://api.4me.com/v1/sites/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {missing: 'storage'}.to_json)
+        expect_log('Attachments not allowed for /sites', :error)
+        expect(@attachments.upload_attachments!('/sites', {note: '[attachment:file1.png]'})).to be_nil
+      end
+
+      [ [:requests,          :note],
+        [:problems,          :note],
+        [:contracts,         :remarks],
+        [:cis,               :remarks],
+        [:flsas,             :remarks],
+        [:slas,              :remarks],
+        [:service_instances, :remarks],
+        [:service_offerings, :summary],
+        [:any_other_model,   :note]].each do |model, attribute|
+
+        it "should replace :attachments with :#{attribute}_attachments after upload at /#{model}" do
+          stub_request(:get, "https://api.4me.com/v1/#{model}/new?attachment_upload_token=true").with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
+          expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', false).ordered{ {key: 'uploaded file1.png'} }
+          expect(@attachments).to receive(:upload_attachment).with('conf', 'file2.zip', false).ordered{ {key: 'uploaded file2.zip'} }
+          data = {leave: 'me alone', attribute => '[attachment:file1.png] and [attachment:file2.zip]'}
+          @attachments.upload_attachments!("/#{model}", data)
+          expect(data[:attachments]).to be_nil
+          expect(data[:leave]).to eq('me alone')
+          expect(data[:"#{attribute}_attachments"]).to eq([{key: 'uploaded file1.png', inline: true}, {key: 'uploaded file2.zip', inline: true}].to_json)
+          expect(data[:"#{attribute}"]).to eq('![](uploaded file1.png) and ![](uploaded file2.zip)')
+        end
+      end
+
+      it 'should set raise_exception flag to true when :attachments_exception is set' do
+        stub_request(:get, 'https://api.4me.com/v1/requests/new?attachment_upload_token=true').with(basic_auth: ['secret', 'x']).to_return(body: {storage_upload: 'conf'}.to_json)
+        expect(@attachments).to receive(:upload_attachment).with('conf', 'file1.png', true).ordered{ {key: 'uploaded file1.png'} }
+        data = {leave: 'me alone', note: '[attachment:file1.png]', attachments_exception: true}
+        @attachments.upload_attachments!('/requests', data)
+        expect(data[:attachments]).to be_nil
+        expect(data[:attachments_exception]).to be_nil
+        expect(data[:leave]).to eq('me alone')
+        expect(data[:note_attachments]).to eq([{key: 'uploaded file1.png', inline: true}].to_json)
+        expect(data[:note]).to eq('![](uploaded file1.png)')
+      end
     end
+
   end
 
   context 'upload_attachment' do
