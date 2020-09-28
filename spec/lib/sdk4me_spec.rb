@@ -4,7 +4,7 @@ describe Sdk4me do
   it "should define a default configuration" do
     conf = Sdk4me.configuration.current
 
-    expect(conf.keys.sort).to eq([:account, :api_token, :api_version, :block_at_rate_limit, :ca_file, :host, :logger, :max_retry_time, :max_throttle_time, :proxy_host, :proxy_password, :proxy_port, :proxy_user, :read_timeout, :source])
+    expect(conf.keys.sort).to eq([:access_token, :account, :api_token, :api_version, :block_at_rate_limit, :ca_file, :host, :logger, :max_retry_time, :max_throttle_time, :proxy_host, :proxy_password, :proxy_port, :proxy_user, :read_timeout, :source])
 
     expect(conf[:logger].class).to eq(::Logger)
     expect(conf[:host]).to eq('https://api.4me.com')
@@ -16,7 +16,7 @@ describe Sdk4me do
 
     expect(conf[:proxy_port]).to eq(8080)
 
-    [:api_token, :account, :source, :proxy_host, :proxy_user, :proxy_password].each do |no_default|
+    [:access_token, :api_token, :account, :source, :proxy_host, :proxy_user, :proxy_password].each do |no_default|
       expect(conf[no_default]).to be_nil
     end
 

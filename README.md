@@ -1,6 +1,6 @@
 # Sdk4me::Client
 
-Client for accessing the [4me REST API](http://developer.4me.com/v1/)
+Client for accessing the [4me REST API](https://developer.4me.com/v1/)
 
 ## Installation
 
@@ -22,7 +22,7 @@ Or install it yourself as:
 
 ```
 Sdk4me.configure do |config|
-  config.api_token = 'd41f5868feb65fc87fa2311a473a8766ea38bc40'
+  config.access_token = 'd41f5868feb65fc87fa2311a473a8766ea38bc40'
   config.account = 'my-sandbox'
   config.logger = Rails.logger
   ...
@@ -32,17 +32,18 @@ end
 All options available:
 
 * _logger_:         The [Ruby Logger](http://www.ruby-doc.org/stdlib-1.9.3/libdoc/logger/rdoc/Logger.html) instance, default: `Logger.new(STDOUT)`
-* _host_:           The [4me API host](http://developer.4me.com/v1/#service-url), default: 'https://api.4me.com'
-* _api_version_:    The [4me API version](http://developer.4me.com/v1/#service-url), default: 'v1'
-* _api_token_:      (**required**) The [4me API token](http://developer.4me.com/v1/#api-tokens)
-* _account_:        Specify a [different account](http://developer.4me.com/v1/#multiple-accounts) to work with
-* _source_:         The [source](http://developer.4me.com/v1/general/source/) used when creating new records
+* _host_:           The [4me API host](https://developer.4me.com/v1/#service-url), default: 'https://api.4me.com'
+* _api_version_:    The [4me API version](https://developer.4me.com/v1/#service-url), default: 'v1'
+* _access_token_:   (**required**) The [4me access token](https://developer.4me.com/v1/#authentication)
+* _api_token_:      (**deprecated**) The [4me API token](https://developer.4me.com/v1/#api-tokens)
+* _account_:        Specify a [different account](https://developer.4me.com/v1/#multiple-accounts) to work with
+* _source_:         The [source](https://developer.4me.com/v1/general/source/) used when creating new records
 * _max_retry_time_: maximum nr of seconds to retry a request on a failed response (default = 300 = 5 minutes)<br/>
   The sleep time between retries starts at 2 seconds and doubles after each retry, i.e.
   2, 6, 18, 54, 162, 486, 1458, ... seconds.<br/>
   Set to 0 to prevent retries.
 * _read_timeout_:   [HTTP read timeout](http://ruby-doc.org/stdlib-2.0.0/libdoc/net/http/rdoc/Net/HTTP.html#method-i-read_timeout-3D) in seconds (default = 25)
-* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](http://developer.4me.com/v1/#rate-limiting) is lifted, default: `true`<br/>
+* _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](https://developer.4me.com/v1/#rate-limiting) is lifted, default: `true`<br/>
   The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_throttle_time_ the request will not be blocked and the throttled response is returned. 
 * _max_throttle_time_: maximum nr of seconds to retry a request on a rate limiter (default = 3660 = 1 hour and 1 minute)<br/>
 * _proxy_host_:     Define in case HTTP traffic needs to go through a proxy
@@ -70,7 +71,7 @@ Minimal example:
 ```
 require 'sdk4me/client'
 
-client = Sdk4me::Client.new(api_token: '3a4e4590179263839...')
+client = Sdk4me::Client.new(access_token: '3a4e4590179263839...')
 response = client.get('me')
 puts response[:primary_email]
 ```
@@ -84,7 +85,7 @@ response = Sdk4me::Client.new.get('organizations/4321')
 puts response[:name]
 ```
 
-By default this call will return all [fields](http://developer.4me.com/v1/organizations/#fields) of the Organization.
+By default this call will return all [fields](https://developer.4me.com/v1/organizations/#fields) of the Organization.
 
 The fields can be accessed using *symbols* and *strings*, and it is possible chain a number of keys in one go:
 ```
@@ -105,8 +106,8 @@ end
 puts "Found #{count} organizations"
 ```
 
-By default this call will return all [collection fields](http://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
-For more fields, check out the [field selection](http://developer.4me.com/v1/general/field_selection/#collection-of-resources) documentation.
+By default this call will return all [collection fields](https://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
+For more fields, check out the [field selection](https://developer.4me.com/v1/general/field_selection/#collection-of-resources) documentation.
 
 The fields can be accessed using *symbols* and *strings*, and it is possible chain a number of keys in one go:
 ```
@@ -123,7 +124,7 @@ Note that an `Sdk4me::Exception` could be thrown in case one of the API requests
 
 The `each` method [described above](#browse-through-a-collection-of-records) is the preferred way to work with collections of data.
 
-If you really want to [paginate](http://developer.4me.com/v1/general/pagination/) yourself, the `get` method is your friend.
+If you really want to [paginate](https://developer.4me.com/v1/general/pagination/) yourself, the `get` method is your friend.
 
 ```
 @client = Sdk4me::Client.new
@@ -141,8 +142,8 @@ next_page  = @client.get(response.pagination_link(:next))
 last_page  = @client.get(response.pagination_link(:last))
 ```
 
-By default this call will return all [collection fields](http://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
-For more fields, check out the [field selection](http://developer.4me.com/v1/general/field_selection/#collection-of-resources) documentation.
+By default this call will return all [collection fields](https://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
+For more fields, check out the [field selection](https://developer.4me.com/v1/general/field_selection/#collection-of-resources) documentation.
 
 The fields can be accessed using *symbols* and *strings*, and it is possible chain a number of keys in one go:
 ```
@@ -243,7 +244,7 @@ end
 
 ### Importing CSV files
 
-4me also provides an [Import API](http://developer.4me.com/v1/import/). The 4me SDK Client can be used to upload files to that API.
+4me also provides an [Import API](https://developer.4me.com/v1/import/). The 4me SDK Client can be used to upload files to that API.
 
 ```
 response = Sdk4me::Client.new.import('\tmp\people.csv', 'people')
@@ -255,9 +256,9 @@ end
 
 ```
 
-The second argument contains the [import type](http://developer.4me.com/v1/import/#parameters).
+The second argument contains the [import type](https://developer.4me.com/v1/import/#parameters).
 
-It is also possible to [monitor the progress](http://developer.4me.com/v1/import/#import-progress) of the import and block until the import is complete. In that case you will need to add some exception handling to your code.
+It is also possible to [monitor the progress](https://developer.4me.com/v1/import/#import-progress) of the import and block until the import is complete. In that case you will need to add some exception handling to your code.
 
 ```
 begin
@@ -277,7 +278,7 @@ Note that blocking for the import to finish is required when you import multiple
 
 ### Exporting CSV files
 
-4me also provides an [Export API](http://developer.4me.com/v1/export/). The 4me SDK Client can be used to download (zipped) CSV files using that API.
+4me also provides an [Export API](https://developer.4me.com/v1/export/). The 4me SDK Client can be used to download (zipped) CSV files using that API.
 
 ```
 response = Sdk4me::Client.new.export(['people', 'people_contact_details'], DateTime.new(2012,03,30,23,00,00))
@@ -289,10 +290,10 @@ end
 
 ```
 
-The first argument contains the [export types](http://developer.4me.com/v1/export/#parameters).
+The first argument contains the [export types](https://developer.4me.com/v1/export/#parameters).
 The second argument is optional and limits the export to all changed records since the given time.
 
-It is also possible to [monitor the progress](http://developer.4me.com/v1/export/#export-progress) of the export and block until the export is complete. In that case you will need to add some exception handling to your code.
+It is also possible to [monitor the progress](https://developer.4me.com/v1/export/#export-progress) of the export and block until the export is complete. In that case you will need to add some exception handling to your code.
 
 ```
 require 'open-uri'
@@ -314,7 +315,7 @@ Note that blocking for the export to finish is recommended as you will get direc
 
 ### Blocking
 
-When the currently used API token hits the [4me rate limiter](http://developer.4me.com/v1/#rate-limiting) a HTTP 429 response is returned that specifies after how many seconds the rate limit will be lifted.
+When the currently used API token hits the [4me rate limiter](https://developer.4me.com/v1/#rate-limiting) a HTTP 429 response is returned that specifies after how many seconds the rate limit will be lifted.
 
 If that time lies within the _max_throttle_time_ the 4me SDK Client will wait and retry the action, if not, the throttled response will be returned. You can verify if a response was throttled using:
 ```
@@ -336,7 +337,7 @@ When exporting translations, the _locale_ parameter is required:
 
 ### Exception handling
 
-The standard methods `get`, `post`, `put` and `delete` will always return a Response with an [error message](http://developer.4me.com/v1/#http-status-codes) in case something went wrong.
+The standard methods `get`, `post`, `put` and `delete` will always return a Response with an [error message](https://developer.4me.com/v1/#http-status-codes) in case something went wrong.
 
 By calling `response.valid?` you will know if the action succeeded or not, and `response.message` provides additinal information in case the response was invalid.
 

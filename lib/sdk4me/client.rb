@@ -27,7 +27,7 @@ module Sdk4me
     #
     # Shared configuration for all 4me SDK Clients:
     #   Sdk4me.configure do |config|
-    #     config.api_token = 'd41f5868feb65fc87fa2311a473a8766ea38bc40'
+    #     config.access_token = 'd41f5868feb65fc87fa2311a473a8766ea38bc40'
     #     config.account = 'my-sandbox'
     #     ...
     #   end
@@ -39,11 +39,11 @@ module Sdk4me
     #  - logger:      The Ruby Logger instance, default: Logger.new(STDOUT)
     #  - host:        The 4me API host, default: 'https://api.4me.com'
     #  - api_version: The 4me API version, default: 'v1'
-    #  - api_token:   *required* The 4me API token
+    #  - access_token: *required* The 4me access token
     #  - account:     Specify a different (trusted) account to work with
-    #                 @see http://developer.4me.com/v1/#multiple-accounts
+    #                 @see https://developer.4me.com/v1/#multiple-accounts
     #  - source:      The Source used when creating new records
-    #                 @see http://developer.4me.com/v1/general/source/
+    #                 @see https://developer.4me.com/v1/general/source/
     #
     #  - max_retry_time: maximum nr of seconds to wait for server to respond (default = 5400 = 1.5 hours)
     #                    the sleep time between retries starts at 2 seconds and doubles after each retry
@@ -51,7 +51,7 @@ module Sdk4me
     #                    one retry will always be performed unless you set the value to -1
     #  - read_timeout:   HTTP GET read timeout in seconds (default = 25)
     #  - block_at_rate_limit: Set to +true+ to block the request until the rate limit is lifted, default: +false+
-    #                         @see http://developer.4me.com/v1/#rate-limiting
+    #                         @see https://developer.4me.com/v1/#rate-limiting
     #
     #  - proxy_host:     Define in case HTTP traffic needs to go through a proxy
     #  - proxy_port:     Port of the proxy, defaults to 8080
@@ -59,12 +59,19 @@ module Sdk4me
     #  - proxy_password: Proxy password
     def initialize(options = {})
       @options = Sdk4me.configuration.current.merge(options)
-      [:host, :api_version, :api_token].each do |required_option|
+      [:host, :api_version].each do |required_option|
         raise ::Sdk4me::Exception.new("Missing required configuration option #{required_option}") if option(required_option).blank?
       end
-      @ssl, @domain, @port = ssl_domain_port_path(option(:host))
-      @ssl_verify_none = options[:ssl_verify_none]
       @logger = @options[:logger]
+      @ssl, @domain, @port = ssl_domain_port_path(option(:host))
+      unless option(:access_token).present?
+        if option(:api_token).blank?
+          raise ::Sdk4me::Exception.new("Missing required configuration option access_token")
+        else
+          @logger.info('Use of api_token is deprecated, consider switching to access_token instead.')
+        end
+      end
+      @ssl_verify_none = options[:ssl_verify_none]
     end
 
     # Retrieve an option
@@ -211,8 +218,12 @@ module Sdk4me
     def expand_header(header = {})
       header = DEFAULT_HEADER.merge(header)
       header['X-4me-Account'] = option(:account) if option(:account)
-      token_and_password = option(:api_token).include?(':') ? option(:api_token) : "#{option(:api_token)}:x"
-      header['AUTHORIZATION'] = 'Basic ' + [token_and_password].pack('m*').gsub(/\s/, '')
+      if option(:access_token).present?
+        header['AUTHORIZATION'] = 'Bearer ' + option(:access_token)
+      else
+        token_and_password = option(:api_token).include?(':') ? option(:api_token) : "#{option(:api_token)}:x"
+        header['AUTHORIZATION'] = 'Basic ' + [token_and_password].pack('m*').gsub(/\s/, '')
+      end
       if option(:source)
         header['X-4me-Source'] = option(:source)
         header['HTTP_USER_AGENT'] = option(:source)

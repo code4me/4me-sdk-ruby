@@ -13,7 +13,21 @@ describe 'ca-bundle.crt' do
     expect(response.valid?).to be_falsey
 
     # expecting 401 error
-    expect(response.message).to eq('401: Access credentials required')
+    expect(response.message).to eq('401: Bad credentials')
+  end
+
+  it 'should be able to connect to the 4me API (access token)' do
+    WebMock.allow_net_connect!
+    client = Sdk4me::Client.new(access_token: 'invalid', max_retry_time: -1)
+    result = {}
+
+    # no exception concerning the certificate
+    expect { result[:response] = client.get('me') }.not_to raise_error
+    response = result[:response]
+    expect(response.valid?).to be_falsey
+
+    # expecting 401 error
+    expect(response.message).to eq('401: Bad credentials')
   end
 
   it 'should be able to connect to S3' do

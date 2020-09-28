@@ -9,6 +9,7 @@ module Sdk4me
 
     has :host, classes: String, default: 'https://api.4me.com'
     has :api_version, values: ['v1'], default: 'v1'
+    has :access_token, classes: String
     has :api_token, classes: String
 
     has :account, classes: String
