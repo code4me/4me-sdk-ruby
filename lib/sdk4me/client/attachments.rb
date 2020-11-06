@@ -1,152 +1,140 @@
 module Sdk4me
   class Attachments
-
-    AWS_PROVIDER = 'aws'
+    S3_PROVIDER = 's3'
     FILENAME_TEMPLATE = '${filename}'
 
-    def initialize(client)
+    def initialize(client, path)
       @client = client
+      @path = path
     end
 
-    # upload the attachments and return the data with the uploaded attachment info
-    # Two flavours available
-    #  * data[:attachments]
-    #  * data[:note] containing text with '[attachment:/tmp/images/green_fuzz.jpg]'
-    def upload_attachments!(path, data)
-      upload_options = {
-        raise_exceptions: !!data.delete(:attachments_exception),
-        attachments_field: attachments_field(path),
-      }
-      uploaded_attachments = upload_normal_attachments!(path, data, upload_options)
-      uploaded_attachments += upload_inline_attachments!(path, data, upload_options)
-      # jsonify the attachments, if any were uploaded
-      data[upload_options[:attachments_field]] = uploaded_attachments.compact.to_json if uploaded_attachments.compact.any?
+    # Upload attachments and replace the data inline with the uploaded
+    # attachments info.
+    #
+    # To upload field attachments:
+    #  * data[:note_attachments] = ['/tmp/test.doc', '/tmp/test.log']
+    #
+    # To upload inline images:
+    #  * data[:note] containing text referring to inline images in
+    #    data[:note_attachments] by their array index, with the index being
+    #    zero-based. Text can only refer to inline images in its own
+    #    attachments collection. For example:
+    #
+    #      data = {
+    #        note: "Hello [note_attachments: 0] and [note_attachments: 1]",
+    #        note_attachments: ['/tmp/jip.png', '/tmp/janneke.png'],
+    #        ...
+    #      }
+    #
+    # After calling this method the data, that will be posted to update the
+    # 4me record, would look similar to:
+    #
+    #      data = {
+    #        note: "Hello ![](storage/abc/adjhajdhjaadf.png) and ![](storage/abc/fskdhakjfkjdssdf.png])",
+    #        note_attachments: ['storage/abc/fskdhakjfkjdssdf.png', 'storage/abc/fskdhakjfkjdssdf.png'],
+    #        ...
+    #      }
+    def upload_attachments!(data)
+      # Field attachments
+      field_attachments = []
+      data.each do |field, value|
+        next unless field.to_s.end_with?('_attachments')
+        next unless value.is_a?(Enumerable) && value.any?
+        value.map! { |attachment| upload_attachment(attachment) }.compact!
+        field_attachments << field if value.any?
+      end
+
+      # Rich text inline attachments
+      field_attachments.each do |field_attachment|
+        field = field_attachment.to_s.sub(/_attachments$/, '')
+        value = data[field.to_sym] || data[field]
+        next unless value.is_a?(String)
+
+        value.gsub!(/\[#{field_attachment}:\s?(\d+)\]/) do |match|
+          idx = Regexp.last_match(1).to_i
+          attachment = data[field_attachment][idx]
+          if attachment
+            attachment[:inline] = true
+            "![](#{attachment[:key]})" # magic markdown for inline attachments
+          else
+            match
+          end
+        end
+      end
     end
 
     private
 
-    # upload the attachments in :attachments to 4me and return the data with the uploaded attachment info
-    def upload_normal_attachments!(path, data, upload_options)
-      attachments = [data.delete(:attachments)].flatten.compact
-      return [] if attachments.empty?
+    def raise_error(message)
+      @client.logger.error { message }
+      raise Sdk4me::UploadFailed, message
+    end
 
-      upload_options[:storage] ||= storage(path, upload_options[:raise_exceptions])
-      return [] unless upload_options[:storage]
+    def storage
+      @storage ||= @client.get("#{@path}/attachment_upload")
+                          .json
+                          .with_indifferent_access
+                          .tap do |storage|
+                            storage[:provider] ||
+                              raise_error("Attachments not supported for #{@path}")
+                          end
+    end
 
-      attachments.map do |attachment|
-        upload_attachment(upload_options[:storage], attachment, upload_options[:raise_exceptions])
+    # Upload a single attachment and return the data that should be submitted
+    # back to 4me. Returns nil and provides an error in case the attachment
+    # upload failed.
+    def upload_attachment(attachment)
+      return nil unless attachment
+
+      provider = storage[:provider]
+
+      # attachment is already a file or we need to open the file from disk
+      unless attachment.respond_to?(:path) && attachment.respond_to?(:read)
+        raise "file does not exist: #{attachment}" unless File.exist?(attachment)
+
+        attachment = File.open(attachment, 'rb')
       end
-    end
 
-    INLINE_ATTACHMENT_REGEXP = /\[attachment:([^\]]+)\]/.freeze
-    # upload any '[attachment:/tmp/images/green_fuzz.jpg]' in :note text field to 4me as inline attachment and add the s3 key to the text
-    def upload_inline_attachments!(path, data, upload_options)
-      text_field = upload_options[:attachments_field].to_s.gsub('_attachments', '').to_sym
-      return [] unless (data[text_field] || '') =~ INLINE_ATTACHMENT_REGEXP
+      key_template = storage[provider][:key]
+      key = key_template.sub(FILENAME_TEMPLATE, File.basename(attachment.path))
 
-      upload_options[:storage] ||= storage(path, upload_options[:raise_exceptions])
-      return [] unless upload_options[:storage]
-
-      attachments = []
-      data[text_field] = data[text_field].gsub(INLINE_ATTACHMENT_REGEXP) do |full_match|
-        attachment_details = upload_attachment(upload_options[:storage], $~[1], upload_options[:raise_exceptions])
-        if attachment_details
-          attachments << attachment_details.merge(inline: true)
-          "![](#{attachment_details[:key]})" # magic markdown for inline attachments
-        else
-          full_match
-        end
-      end
-      attachments
-    end
-
-    def storage(path, raise_exceptions)
-      # retrieve the upload configuration for this record from 4me
-      storage = @client.get(path =~ /\d+$/ ? path : "#{path}/new", {attachment_upload_token: true}, @client.send(:expand_header))[:storage_upload]
-      report_error("Attachments not allowed for #{path}", raise_exceptions) unless storage
-      storage
-    end
-
-    def attachments_field(path)
-      case path
-      when /cis/, /contracts/, /flsas/, /service_instances/, /slas/
-        :remarks_attachments
-      when /service_offerings/
-        :summary_attachments
+      if provider == S3_PROVIDER
+        upload_to_s3(key, attachment)
       else
-        :note_attachments
+        upload_to_4me_local(key, attachment)
       end
+
+      # return the values for the attachments param
+      { key: key, filesize: File.size(attachment.path) }
+    rescue StandardError => e
+      raise_error("Attachment upload failed: #{e.message}")
     end
 
-    def report_error(message, raise_exceptions)
-      if raise_exceptions
-        raise Sdk4me::UploadFailed.new(message)
-      else
-        @client.logger.error{ message }
-      end
-    end
+    # Upload the file to AWS S3 storage
+    def upload_to_s3(key, attachment)
+      uri = storage[:upload_uri]
+      response = send_file(uri, storage[:s3].merge({ file: attachment }))
 
-    # upload a single attachment and return the data for the note_attachments
-    # returns nil and provides an error in case the attachment upload failed
-    def upload_attachment(storage, attachment, raise_exceptions)
-      begin
-        # attachment is already a file or we need to open the file from disk
-        unless attachment.respond_to?(:path) && attachment.respond_to?(:read)
-          raise "file does not exist: #{attachment}" unless File.exists?(attachment)
-          attachment = File.open(attachment, 'rb')
-        end
-
-        # there are two different upload methods: AWS S3 and 4me local storage
-        key_template = "#{storage[:upload_path]}#{FILENAME_TEMPLATE}"
-        key = key_template.gsub(FILENAME_TEMPLATE, File.basename(attachment.path))
-        upload_method = storage[:provider] == AWS_PROVIDER ? :aws_upload : :upload_to_4me
-        send(upload_method, storage, key_template, key, attachment)
-
-        # return the values for the note_attachments param
-        {key: key, filesize: File.size(attachment.path)}
-      rescue ::Exception => e
-        report_error("Attachment upload failed: #{e.message}", raise_exceptions)
-        nil
-      end
-    end
-
-    def aws_upload(aws, key_template, key, attachment)
-      # upload the file to AWS
-      response = send_file(aws[:upload_uri], {
-        :'x-amz-server-side-encryption' => 'AES256',
-        key: key_template,
-        AWSAccessKeyId: aws[:access_key],
-        acl: 'private',
-        signature: aws[:signature],
-        success_action_status: 201,
-        policy: aws[:policy],
-        file: attachment # file must be last
-      })
       # this is a bit of a hack, but Amazon S3 returns only XML :(
-      xml = response.raw.body || ''
-      error = xml[/<Error>.*<Message>(.*)<\/Message>.*<\/Error>/, 1]
-      raise "AWS upload to #{aws[:upload_uri]} for #{key} failed: #{error}" if error
-
-      # inform 4me of the successful upload
-      response = @client.get(aws[:success_url].split('/').last, {key: key}, @client.send(:expand_header))
-      raise "4me confirmation #{aws[:success_url].split('/').last} for #{key} failed: #{response.message}" unless response.valid?
+      xml = response.body || ''
+      error = xml[%r{<Error>.*<Message>(.*)</Message>.*</Error>}, 1]
+      raise "AWS S3 upload to #{uri} for #{key} failed: #{error}" if error
     end
 
-    # upload the file directly to 4me
-    def upload_to_4me(storage, key_template, key, attachment)
-      uri = storage[:upload_uri] =~ /\/v1/ ? storage[:upload_uri] : storage[:upload_uri].gsub('/attachments', '/v1/attachments')
-      response = send_file(uri, {file: attachment, key: key_template}, @client.send(:expand_header))
-      raise "4me upload to #{storage[:upload_uri]} for #{key} failed: #{response.message}" unless response.valid?
+    # Upload the file directly to 4me local storage
+    def upload_to_4me_local(key, attachment)
+      uri = storage[:upload_uri]
+      response = send_file(uri, storage[:local].merge({ file: attachment }), @client.send(:expand_header))
+      raise "4me upload to #{uri} for #{key} failed: #{response.message}" unless response.valid?
     end
 
     def send_file(uri, params, basic_auth_header = {})
-      params = {:'Content-Type' => MIME::Types.type_for(params[:key])[0] || MIME::Types["application/octet-stream"][0]}.merge(params)
+      params = { 'Content-Type': MIME::Types.type_for(params[:key])[0] || MIME::Types['application/octet-stream'][0] }.merge(params)
       data, header = Sdk4me::Multipart::Post.prepare_query(params)
       ssl, domain, port, path = @client.send(:ssl_domain_port_path, uri)
       request = Net::HTTP::Post.new(path, basic_auth_header.merge(header))
       request.body = data
       @client.send(:_send, request, domain, port, ssl)
     end
-
   end
 end

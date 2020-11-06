@@ -265,9 +265,9 @@ describe Sdk4me::Client do
 
       it "should not parse attachments for get requests" do
         expect(Sdk4me::Attachments).not_to receive(:new)
-        stub_request(:get, 'https://api.4me.com/v1/requests/777?attachments=/tmp/first.png,/tmp/second.zip&note=note').with(credentials(authentication)).to_return(body: {id: 777, upload_called: false}.to_json)
+        stub_request(:get, 'https://api.4me.com/v1/requests/777?note_attachments=/tmp/first.png,/tmp/second.zip&note=note%20%5Battachment:/tmp/third.gif%5D').with(credentials(authentication)).to_return(body: {id: 777, upload_called: false}.to_json)
 
-        response = client(authentication).get('/requests/777', {note: 'note', attachments: ['/tmp/first.png', '/tmp/second.zip'] })
+        response = client(authentication).get('/requests/777', {note: 'note [attachment:/tmp/third.gif]', note_attachments: ['/tmp/first.png', '/tmp/second.zip'] })
         expect(response.valid?).to be_truthy
         expect(response[:upload_called]).to be_falsey
       end
@@ -275,16 +275,14 @@ describe Sdk4me::Client do
       [:post, :patch].each do |method|
         it "should parse attachments for #{method} requests" do
           attachments = double('Sdk4me::Attachments')
-          expect(attachments).to receive(:upload_attachments!) do |path, data|
-            expect(path).to eq '/requests/777'
-            expect(data[:attachments]).to eq ['/tmp/first.png', '/tmp/second.zip']
-            data.delete(:attachments)
+          expect(attachments).to receive(:upload_attachments!) do |data|
+            expect(data[:note_attachments]).to eq(['/tmp/first.png', '/tmp/second.zip'])
             data[:note_attachments] = 'processed'
           end
-          expect(Sdk4me::Attachments).to receive(:new).with(client(authentication)){ attachments }
+          expect(Sdk4me::Attachments).to receive(:new).with(client(authentication), '/requests/777') { attachments }
           stub_request(method, 'https://api.4me.com/v1/requests/777').with(credentials(authentication)).with(body: {note: 'note', note_attachments: 'processed' }).to_return(body: {id: 777, upload_called: true}.to_json)
 
-          response = client(authentication).send(method, '/requests/777', {note: 'note', attachments: ['/tmp/first.png', '/tmp/second.zip'] })
+          response = client(authentication).send(method, '/requests/777', {note: 'note', note_attachments: ['/tmp/first.png', '/tmp/second.zip'] })
           expect(response.valid?).to be_truthy
           expect(response[:upload_called]).to be_truthy
         end
@@ -383,7 +381,6 @@ describe Sdk4me::Client do
 
     context 'export' do
       before(:each) do
-
         @export_queued_response = {body: {state: 'queued'}.to_json}
         @export_processing_response = {body: {state: 'processing'}.to_json}
         @export_done_response = {body: {state: 'done', url: 'https://download.example.com/export.zip?AWSAccessKeyId=12345'}.to_json}

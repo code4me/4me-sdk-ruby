@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe 'ca-bundle.crt' do
 
-  it 'should be able to connect to the 4me API' do
+  it 'should be able to connect to the 4me REST API' do
     WebMock.allow_net_connect!
     client = Sdk4me::Client.new(api_token: 'invalid', max_retry_time: -1)
     result = {}
@@ -16,7 +16,7 @@ describe 'ca-bundle.crt' do
     expect(response.message).to eq('401: Bad credentials')
   end
 
-  it 'should be able to connect to the 4me API (access token)' do
+  it 'should be able to connect to the 4me REST API (access token)' do
     WebMock.allow_net_connect!
     client = Sdk4me::Client.new(access_token: 'invalid', max_retry_time: -1)
     result = {}

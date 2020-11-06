@@ -1,16 +1,15 @@
 require 'spec_helper'
+require 'tempfile'
 
 describe Sdk4me::Attachments do
 
-  def attachments(authentication)
-    (@attachments ||= {})[authentication] ||= begin
-      client = if authentication == :api_token
-                 Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1)
-               else
-                 Sdk4me::Client.new(access_token: 'secret', max_retry_time: -1)
-               end
-      Sdk4me::Attachments.new(client)
-    end
+  def attachments(authentication, path)
+    @client = if authentication == :api_token
+               Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1)
+             else
+               Sdk4me::Client.new(access_token: 'secret', max_retry_time: -1)
+             end
+    Sdk4me::Attachments.new(@client, path)
   end
 
   def credentials(authentication)
@@ -22,241 +21,320 @@ describe Sdk4me::Attachments do
   end
 
   [:api_token, :access_token].each do |authentication|
-
-    context "#{authentication} - " do
-      context 'upload_attachments!' do
-        context 'normal' do
-          it 'should not do anything when no :attachments are present' do
-            expect(attachments(authentication).upload_attachments!('/requests', {status: :in_progress})).to be_nil
+    context "#{authentication} -" do
+      context 'upload_attachments! -' do
+        context 'field attachments' do
+          it 'should not do anything when no attachments are present' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            a.upload_attachments!({ status: :in_progress })
           end
 
-          it 'should not do anything when :attachments is nil' do
-            expect(attachments(authentication).upload_attachments!('/requests', {attachments: nil})).to be_nil
+          it 'should not do anything when attachments is nil' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            a.upload_attachments!({ note_attachments: nil })
           end
 
-          it 'should not do anything when :attachments is empty' do
-            expect(attachments(authentication).upload_attachments!('/requests', {attachments: []})).to be_nil
-            expect(attachments(authentication).upload_attachments!('/requests', {attachments: [nil]})).to be_nil
+          it 'should not do anything when attachments is empty' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            a.upload_attachments!({ note_attachments: [] })
+            a.upload_attachments!({ note_attachments: [nil] })
           end
 
-          it 'should show a error if no attachment may be uploaded' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {name: 'site 1'}.to_json)
-            expect_log('Attachments not allowed for /sites/1', :error)
-            expect(attachments(authentication).upload_attachments!('/sites/1', {attachments: ['file1.png']})).to be_nil
+          it 'should raise an error if no attachment may be uploaded' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 404, body: {message: 'Not Found'}.to_json)
+            expect_log('GET request to api.4me.com:443/v1/requests/attachment_upload failed: 404: Not Found', :error)
+            expect_log('Attachments not supported for /requests', :error)
+            expect { a.upload_attachments!({ note_attachments: ['file1.png'] }) }.to raise_error(::Sdk4me::UploadFailed, 'Attachments not supported for /requests')
           end
 
-          it 'should raise an exception if no attachment may be uploaded' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {name: 'site 1'}.to_json)
-            message = 'Attachments not allowed for /sites/1'
-            expect{ attachments(authentication).upload_attachments!('/sites/1', {attachments: ['file1.png'], attachments_exception: true}) }.to raise_error(::Sdk4me::UploadFailed, message)
-          end
+          it 'should upload' do
+            a = attachments(authentication, '/requests')
+            resp = {
+              provider: 'local',
+              upload_uri: 'https://widget.example.com/attachments',
+              local: {
+                key: 'attachments/5/requests/000/000/777/abc/${filename}',
+                x_4me_expiration: '2020-11-01T23:59:59Z',
+                x_4me_signature: 'foobar'
+              }
+            }
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
-          it 'should add /new to the path for new records' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/new?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {missing: 'storage'}.to_json)
-            expect_log('Attachments not allowed for /sites', :error)
-            expect(attachments(authentication).upload_attachments!('/sites', {attachments: ['file1.png']})).to be_nil
-          end
+            expect(a).to receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } }
+            expect(a).to receive(:upload_attachment).with('/tmp/file2.zip').ordered { { key: 'attachments/5/requests/000/000/777/abc/file2.zip', filesize: 9876 } }
 
-          [ [:requests,          :note],
-            [:problems,          :note],
-            [:contracts,         :remarks],
-            [:cis,               :remarks],
-            [:flsas,             :remarks],
-            [:slas,              :remarks],
-            [:service_instances, :remarks],
-            [:service_offerings, :summary],
-            [:any_other_model,   :note]].each do |model, attribute|
-
-            it "should replace :attachments with :#{attribute}_attachments after upload at /#{model}" do
-              stub_request(:get, "https://api.4me.com/v1/#{model}/new?attachment_upload_token=true").with(credentials(authentication)).to_return(body: {storage_upload: 'conf'}.to_json)
-              expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file1.png', false).ordered{ 'uploaded file1.png' }
-              expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file2.zip', false).ordered{ 'uploaded file2.zip' }
-              data = {leave: 'me alone', attachments: %w(file1.png file2.zip)}
-              attachments(authentication).upload_attachments!("/#{model}", data)
-              expect(data[:attachments]).to be_nil
-              expect(data[:leave]).to eq('me alone')
-              expect(data[:"#{attribute}_attachments"]).to eq(['uploaded file1.png', 'uploaded file2.zip'].to_json)
-            end
-          end
-
-          it 'should set raise_exception flag to true when :attachments_exception is set' do
-            stub_request(:get, 'https://api.4me.com/v1/requests/new?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {storage_upload: 'conf'}.to_json)
-            expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file1.png', true).ordered{ 'uploaded file1.png' }
-            data = {leave: 'me alone', attachments: 'file1.png', attachments_exception: true}
-            attachments(authentication).upload_attachments!('/requests', data)
-            expect(data[:attachments]).to be_nil
-            expect(data[:attachments_exception]).to be_nil
-            expect(data[:leave]).to eq('me alone')
-            expect(data[:note_attachments]).to eq(['uploaded file1.png'].to_json)
+            data = { subject: 'Foobar', note_attachments: ['/tmp/file1.png', '/tmp/file2.zip'] }
+            a.upload_attachments!(data)
+            expect(data).to eq({ subject: 'Foobar', note_attachments: [
+              { filesize: 1234, key: 'attachments/5/requests/000/000/777/abc/file1.png' },
+              { filesize: 9876, key: 'attachments/5/requests/000/000/777/abc/file2.zip' }
+            ]})
           end
         end
 
-        context 'inline' do
-          it 'should not do anything when no [attachment:...] is present in the note' do
-            expect(attachments(authentication).upload_attachments!('/requests', {note: '[attachmen:/type]'})).to be_nil
+        context 'rich text inline attachments' do
+          it 'should not do anything when no [note_attachments: <idx>] is present in the note' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            data = {note: '[note_attachments: foo]'}
+            a.upload_attachments!(data)
+            expect(data).to eq({note: '[note_attachments: foo]'})
           end
 
-          it 'should not do anything when attachment is empty' do
-            expect(attachments(authentication).upload_attachments!('/requests', {note: '[attachment:]'})).to be_nil
+          it 'should not do anything when note attachments is empty' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            data = {note: '[note_attachments: 0]'}
+            a.upload_attachments!(data)
+            expect(data).to eq({note: '[note_attachments: 0]'})
           end
 
-          it 'should show a error if no attachment may be uploaded' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {name: 'site 1'}.to_json)
-            expect_log('Attachments not allowed for /sites/1', :error)
-            expect(attachments(authentication).upload_attachments!('/sites/1', {note: '[attachment:file1.png]'})).to be_nil
+          it 'should raise an error if no attachment may be uploaded' do
+            a = attachments(authentication, '/requests')
+            expect(@client).not_to receive(:send_file)
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 404, body: {message: 'Not Found'}.to_json)
+            expect_log('GET request to api.4me.com:443/v1/requests/attachment_upload failed: 404: Not Found', :error)
+            expect_log('Attachments not supported for /requests', :error)
+            data = {
+              note: '[note_attachments: 0]', note_attachments: ['/tmp/doesnotexist.log']
+            }
+            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachments not supported for /requests')
           end
 
-          it 'should raise an exception if no attachment may be uploaded' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/1?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {name: 'site 1'}.to_json)
-            message = 'Attachments not allowed for /sites/1'
-            expect{ attachments(authentication).upload_attachments!('/sites/1', {note: '[attachment:file1.png]', attachments_exception: true}) }.to raise_error(::Sdk4me::UploadFailed, message)
-          end
+          it 'should upload' do
+            a = attachments(authentication, '/requests')
+            resp = {
+              provider: 'local',
+              upload_uri: 'https://widget.example.com/attachments',
+              local: {
+                key: 'attachments/5/requests/000/000/777/abc/${filename}',
+                x_4me_expiration: '2020-11-01T23:59:59Z',
+                x_4me_signature: 'foobar'
+              }
+            }
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
-          it 'should add /new to the path for new records' do
-            stub_request(:get, 'https://api.4me.com/v1/sites/new?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {missing: 'storage'}.to_json)
-            expect_log('Attachments not allowed for /sites', :error)
-            expect(attachments(authentication).upload_attachments!('/sites', {note: '[attachment:file1.png]'})).to be_nil
-          end
+            expect(a).to receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } }
+            expect(a).to receive(:upload_attachment).with('/tmp/file2.jpg').ordered { { key: 'attachments/5/requests/000/000/777/abc/file2.jpg', filesize: 9876 } }
 
-          [ [:requests,          :note],
-            [:problems,          :note],
-            [:contracts,         :remarks],
-            [:cis,               :remarks],
-            [:flsas,             :remarks],
-            [:slas,              :remarks],
-            [:service_instances, :remarks],
-            [:service_offerings, :summary],
-            [:any_other_model,   :note]].each do |model, attribute|
+            data = {
+              subject: 'Foobar',
+              note: 'Foo [note_attachments: 0] Bar [note_attachments: 1]',
+              note_attachments: ['/tmp/file1.png', '/tmp/file2.jpg']
+            }
+            a.upload_attachments!(data)
 
-            it "should replace :attachments with :#{attribute}_attachments after upload at /#{model}" do
-              stub_request(:get, "https://api.4me.com/v1/#{model}/new?attachment_upload_token=true").with(credentials(authentication)).to_return(body: {storage_upload: 'conf'}.to_json)
-              expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file1.png', false).ordered{ {key: 'uploaded file1.png'} }
-              expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file2.zip', false).ordered{ {key: 'uploaded file2.zip'} }
-              data = {leave: 'me alone', attribute => '[attachment:file1.png] and [attachment:file2.zip]'}
-              attachments(authentication).upload_attachments!("/#{model}", data)
-              expect(data[:attachments]).to be_nil
-              expect(data[:leave]).to eq('me alone')
-              expect(data[:"#{attribute}_attachments"]).to eq([{key: 'uploaded file1.png', inline: true}, {key: 'uploaded file2.zip', inline: true}].to_json)
-              expect(data[:"#{attribute}"]).to eq('![](uploaded file1.png) and ![](uploaded file2.zip)')
-            end
-          end
-
-          it 'should set raise_exception flag to true when :attachments_exception is set' do
-            stub_request(:get, 'https://api.4me.com/v1/requests/new?attachment_upload_token=true').with(credentials(authentication)).to_return(body: {storage_upload: 'conf'}.to_json)
-            expect(attachments(authentication)).to receive(:upload_attachment).with('conf', 'file1.png', true).ordered{ {key: 'uploaded file1.png'} }
-            data = {leave: 'me alone', note: '[attachment:file1.png]', attachments_exception: true}
-            attachments(authentication).upload_attachments!('/requests', data)
-            expect(data[:attachments]).to be_nil
-            expect(data[:attachments_exception]).to be_nil
-            expect(data[:leave]).to eq('me alone')
-            expect(data[:note_attachments]).to eq([{key: 'uploaded file1.png', inline: true}].to_json)
-            expect(data[:note]).to eq('![](uploaded file1.png)')
+            expect(data).to eq({
+              note: 'Foo ![](attachments/5/requests/000/000/777/abc/file1.png) Bar ![](attachments/5/requests/000/000/777/abc/file2.jpg)',
+              note_attachments: [
+                { filesize: 1234, inline: true, key: 'attachments/5/requests/000/000/777/abc/file1.png' },
+                { filesize: 9876, inline: true, key: 'attachments/5/requests/000/000/777/abc/file2.jpg' }
+              ],
+              subject: 'Foobar'
+            })
           end
         end
 
+        context 'field attachments and rich text inline attachments' do
+          it 'should upload, and replace the data in place' do
+            a = attachments(authentication, '/requests')
+            resp = {
+              provider: 'local',
+              upload_uri: 'https://widget.example.com/attachments',
+              local: {
+                key: 'attachments/5/requests/000/000/777/abc/${filename}',
+                x_4me_expiration: '2020-11-01T23:59:59Z',
+                x_4me_signature: 'foobar'
+              }
+            }
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+
+            expect(a).to receive(:upload_attachment).with('/tmp/file3.log').ordered { { key: 'attachments/5/requests/000/000/777/abc/file3.log', filesize: 5678 } }
+            expect(a).to receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } }
+            expect(a).to receive(:upload_attachment).with('/tmp/file2.jpg').ordered { { key: 'attachments/5/requests/000/000/777/abc/file2.jpg', filesize: 9876 } }
+
+            data = {
+              subject: 'Foobar',
+              note: 'Foo [note_attachments: 2] Bar [note_attachments: 1]',
+              note_attachments: ['/tmp/file3.log', '/tmp/file1.png', '/tmp/file2.jpg']
+            }
+            a.upload_attachments!(data)
+
+            expect(data).to eq({
+              note: 'Foo ![](attachments/5/requests/000/000/777/abc/file2.jpg) Bar ![](attachments/5/requests/000/000/777/abc/file1.png)',
+              note_attachments: [
+                { filesize: 5678, key: 'attachments/5/requests/000/000/777/abc/file3.log' },
+                { filesize: 1234, inline: true, key: 'attachments/5/requests/000/000/777/abc/file1.png' },
+                { filesize: 9876, inline: true, key: 'attachments/5/requests/000/000/777/abc/file2.jpg' }
+              ],
+              subject: 'Foobar'
+            })
+          end
+
+          it 'failed uploads' do
+            a = attachments(authentication, '/requests')
+            resp = {
+              provider: 'local',
+              upload_uri: 'https://widget.example.com/attachments',
+              local: {
+                key: 'attachments/5/requests/000/000/777/abc/${filename}',
+                x_4me_expiration: '2020-11-01T23:59:59Z',
+                x_4me_signature: 'foobar'
+              }
+            }
+            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+
+            expect_log('Attachment upload failed: file does not exist: /tmp/doesnotexist.png', :error)
+
+            data = {
+              subject: 'Foobar',
+              note: 'Foo [note_attachments: 2] Bar [note_attachments: 1]',
+              note_attachments: ['/tmp/doesnotexist.png']
+            }
+            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: file does not exist: /tmp/doesnotexist.png')
+          end
+        end
       end
 
-      context 'upload_attachment' do
-
-        it 'should log an exception when the file could not be found' do
-          expect_log('Attachment upload failed: file does not exist: unknown_file', :error)
-          expect(attachments(authentication).send(:upload_attachment, nil, 'unknown_file', false)).to be_nil
-        end
-
-        it 'should raise an exception when the file could not be found' do
-          message = 'Attachment upload failed: file does not exist: unknown_file'
-          expect{ attachments(authentication).send(:upload_attachment, nil, 'unknown_file', true) }.to raise_error(::Sdk4me::UploadFailed, message)
-        end
-
-        context 'aws' do
-          before(:each) do
-            @aws_conf = {
-                provider: 'aws',
-                upload_uri: 'https://itrp.s3.amazonaws.com/',
-                access_key: 'AKIA6RYQ',
-                success_url: 'https://mycompany.4me.com/s3_success?sig=99e82e8a046',
-                policy: 'eydlgIH0=',
-                signature: 'nbhdec4k=',
-                upload_path: 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/'
+      context :upload_attachment do
+        before(:each) do
+          resp = {
+            provider: 'local',
+            upload_uri: 'https://widget.example.com/attachments',
+            local: {
+              key: 'attachments/5/requests/000/000/777/abc/${filename}',
+              x_4me_expiration: '2020-11-01T23:59:59Z',
+              x_4me_signature: 'foobar'
             }
-            @key_template = 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}'
-            @key = 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/upload.txt'
-
-            @multi_part_body = "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"Content-Type\"\r\n\r\napplication/octet-stream\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x-amz-server-side-encryption\"\r\n\r\nAES256\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\nattachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"AWSAccessKeyId\"\r\n\r\nAKIA6RYQ\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"acl\"\r\n\r\nprivate\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"signature\"\r\n\r\nnbhdec4k=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"success_action_status\"\r\n\r\n201\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"policy\"\r\n\r\neydlgIH0=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{@fixture_dir}/upload.txt\"\r\nContent-Type: text/plain\r\n\r\ncontent\r\n--0123456789ABLEWASIEREISAWELBA9876543210--"
-            @multi_part_headers = {'Accept'=>'*/*', 'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210', 'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'}
-          end
-
-          it 'should open a file from disk' do
-            expect(attachments(authentication)).to receive(:aws_upload).with(@aws_conf, @key_template, @key, kind_of(File))
-            expect(attachments(authentication).send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", false)).to eq({key: @key, filesize: 7})
-          end
-
-          it 'should sent the upload to AWS' do
-            stub_request(:post, 'https://itrp.s3.amazonaws.com/').with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: 'OK', status: 303, headers: {'Location' => 'https://mycompany.4me.com/s3_success?sig=99e82e8a046'})
-            stub_request(:get, "https://api.4me.com/v1/s3_success?sig=99e82e8a046&key=#{@key}").with(credentials(authentication)).to_return(body: {}.to_json)
-            expect(attachments(authentication).send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", false)).to eq({key: @key, filesize: 7})
-          end
-
-          it 'should report an error when AWS upload fails' do
-            stub_request(:post, 'https://itrp.s3.amazonaws.com/').with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: %(<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Invalid according to Policy</Message><RequestId>1FECC4B719E426B1</RequestId><HostId>15+14lXt+HlF</HostId></Error>), status: 303, headers: {'Location' => 'https://mycompany.4me.com/s3_success?sig=99e82e8a046'})
-            expect_log("Attachment upload failed: AWS upload to https://itrp.s3.amazonaws.com/ for #{@key} failed: Invalid according to Policy", :error)
-            expect(attachments(authentication).send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", false)).to be_nil
-          end
-
-          it 'should report an error when 4me confirmation fails' do
-            stub_request(:post, 'https://itrp.s3.amazonaws.com/').with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: 'OK', status: 303, headers: {'Location' => 'https://mycompany.4me.com/s3_success?sig=99e82e8a046'})
-            stub_request(:get, "https://api.4me.com/v1/s3_success?sig=99e82e8a046&key=#{@key}").with(credentials(authentication)).to_return(body: {message: 'oops!'}.to_json)
-            expect_log('GET request to api.4me.com:443/v1/s3_success?sig=99e82e8a046&key=attachments%2F5%2Freqs%2F000%2F070%2F451%2Fzxxb4ot60xfd6sjg%2Fupload%2Etxt failed: oops!', :error)
-            expect_log("Attachment upload failed: 4me confirmation s3_success?sig=99e82e8a046 for #{@key} failed: oops!", :error)
-            expect(attachments(authentication).send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", false)).to be_nil
-          end
-
-          it 'should raise an exception when AWS upload fails' do
-            stub_request(:post, 'https://itrp.s3.amazonaws.com/').with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: %(<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Invalid according to Policy</Message><RequestId>1FECC4B719E426B1</RequestId><HostId>15+14lXt+HlF</HostId></Error>), status: 303, headers: {'Location' => 'https://mycompany.4me.com/s3_success?sig=99e82e8a046'})
-            message = "Attachment upload failed: AWS upload to https://itrp.s3.amazonaws.com/ for #{@key} failed: Invalid according to Policy"
-            expect{ attachments(authentication).send(:upload_attachment, @aws_conf, "#{@fixture_dir}/upload.txt", true) }.to raise_error(::Sdk4me::UploadFailed, message)
-          end
+          }
+          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
         end
 
-        context '4me' do
-          before(:each) do
-            @sdk4me_conf = {
-                provider: 'local',
-                upload_uri: 'https://api.4me.com/attachments',
-                upload_path: 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/'
+        it 'should raise an error when the file could not be found' do
+          a = attachments(authentication, '/requests')
+          expect(@client).not_to receive(:send_file)
+          message = 'Attachment upload failed: file does not exist: /tmp/unknown_file'
+          expect_log(message, :error)
+          expect { a.send(:upload_attachment, '/tmp/unknown_file') }.to raise_error(::Sdk4me::UploadFailed, message)
+        end
+      end
+
+      context :s3 do
+        before(:each) do
+          resp = {
+            provider: 's3',
+            upload_uri: 'https://example.s3-accelerate.amazonaws.com/',
+            s3: {
+              acl: 'private',
+              key: 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}',
+              policy: 'eydlgIH0=',
+              success_action_status: 201,
+              x_amz_algorithm: 'AWS4-HMAC-SHA256',
+              x_amz_credential: 'AKIATRO999Z9E9D2EQ7B/20201107/us-east-1/s3/aws4_request',
+              x_amz_date: '20201107T000000Z',
+              x_amz_server_side_encryption: 'AES256',
+              x_amz_signature: 'nbhdec4k='
             }
-            @key_template = 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}'
-            @key = 'attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/upload.txt'
+          }
+          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+        end
 
-            @multi_part_body = "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"Content-Type\"\r\n\r\napplication/octet-stream\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{@spec_dir}/support/fixtures/upload.txt\"\r\nContent-Type: text/plain\r\n\r\ncontent\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\nattachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}\r\n--0123456789ABLEWASIEREISAWELBA9876543210--"
-            @multi_part_headers = {'Accept'=>'*/*', 'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210', 'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'}
-          end
+        it 'should upload a file from disk' do
+          Tempfile.create('4me_attachments_spec.txt') do |file|
+            file << 'foobar'
+            file.flush
 
-          it 'should open a file from disk' do
-            expect(attachments(authentication)).to receive(:upload_to_4me).with(@sdk4me_conf, @key_template, @key, kind_of(File))
-            expect(attachments(authentication).send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", false)).to eq({key: @key, filesize: 7})
-          end
+            a = attachments(authentication, '/requests')
 
-          it 'should sent the upload to 4me' do
-            stub_request(:post, 'https://api.4me.com/v1/attachments').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: {}.to_json)
-            expect(attachments(authentication).send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", false)).to eq({key: @key, filesize: 7})
-          end
+            stub_request(:post, "https://example.s3-accelerate.amazonaws.com/").
+                     with(
+                       body: "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"Content-Type\"\r\n\r\napplication/octet-stream\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"acl\"\r\n\r\nprivate\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\nattachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"policy\"\r\n\r\neydlgIH0=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"success_action_status\"\r\n\r\n201\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_algorithm\"\r\n\r\nAWS4-HMAC-SHA256\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_credential\"\r\n\r\nAKIATRO999Z9E9D2EQ7B/20201107/us-east-1/s3/aws4_request\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_date\"\r\n\r\n20201107T000000Z\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_server_side_encryption\"\r\n\r\nAES256\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_signature\"\r\n\r\nnbhdec4k=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{file.path}\"\r\nContent-Type: application/octet-stream\r\n\r\nfoobar\r\n--0123456789ABLEWASIEREISAWELBA9876543210--",
+                       headers: {
+                        'Accept'=>'*/*',
+                        'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
+                        'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
+                        'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                       }).
+                     to_return(status: 200, body: "", headers: {})
 
-          it 'should report an error when 4me upload fails' do
-            stub_request(:post, 'https://api.4me.com/v1/attachments').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: {message: 'oops!'}.to_json)
-            expect_log('POST request to api.4me.com:443/v1/attachments failed: oops!', :error)
-            expect_log("Attachment upload failed: 4me upload to https://api.4me.com/attachments for #{@key} failed: oops!", :error)
-            expect(attachments(authentication).send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", false)).to be_nil
-          end
-
-          it 'should raise an exception when 4me upload fails' do
-            stub_request(:post, 'https://api.4me.com/v1/attachments').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: {message: 'oops!'}.to_json)
-            expect_log('POST request to api.4me.com:443/v1/attachments failed: oops!', :error)
-            message = "Attachment upload failed: 4me upload to https://api.4me.com/attachments for #{@key} failed: oops!"
-            expect{ attachments(authentication).send(:upload_attachment, @sdk4me_conf, "#{@fixture_dir}/upload.txt", true) }.to raise_error(::Sdk4me::UploadFailed, message)
+            expect(a.send(:upload_attachment, file.path)).to eq({
+              key: "attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/#{File.basename(file.path)}",
+              filesize: 6
+            })
           end
         end
 
+        it 'should report an error when upload fails' do
+          Tempfile.create('4me_attachments_spec.txt') do |file|
+            file << 'foobar'
+            file.flush
+
+            a = attachments(authentication, '/requests')
+
+            stub_request(:post, "https://example.s3-accelerate.amazonaws.com/").
+                     with(
+                       body: "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"Content-Type\"\r\n\r\napplication/octet-stream\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"acl\"\r\n\r\nprivate\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\nattachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/${filename}\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"policy\"\r\n\r\neydlgIH0=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"success_action_status\"\r\n\r\n201\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_algorithm\"\r\n\r\nAWS4-HMAC-SHA256\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_credential\"\r\n\r\nAKIATRO999Z9E9D2EQ7B/20201107/us-east-1/s3/aws4_request\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_date\"\r\n\r\n20201107T000000Z\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_server_side_encryption\"\r\n\r\nAES256\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_amz_signature\"\r\n\r\nnbhdec4k=\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{file.path}\"\r\nContent-Type: application/octet-stream\r\n\r\nfoobar\r\n--0123456789ABLEWASIEREISAWELBA9876543210--",
+                       headers: {
+                         'Accept'=>'*/*',
+                         'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
+                         'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
+                         'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                       }).
+                     to_return(status: 400, body: "<Error><Message>Foo Bar Failure</Message></Error>", headers: {})
+
+            key = "attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/#{File.basename(file.path)}"
+            message = "Attachment upload failed: AWS S3 upload to https://example.s3-accelerate.amazonaws.com/ for #{key} failed: Foo Bar Failure"
+            # expect_log(message, :error)
+            expect { a.send(:upload_attachment, file.path) }.to raise_error(::Sdk4me::UploadFailed, message)
+          end
+        end
+      end
+
+      context '4me local' do
+        before(:each) do
+          a = attachments(authentication, '/requests')
+          resp = {
+            provider: 'local',
+            upload_uri: 'https://widget.example.com/attachments',
+            local: {
+              key: 'attachments/5/requests/000/000/777/abc/${filename}',
+              x_4me_expiration: '2020-11-01T23:59:59Z',
+              x_4me_signature: 'foobar'
+            }
+          }
+          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+        end
+
+        it 'should upload a file from disk' do
+          Tempfile.create('4me_attachments_spec.txt') do |file|
+            file << 'foobar'
+            file.flush
+
+            a = attachments(authentication, '/requests')
+
+            stub_request(:post, "https://widget.example.com/attachments").
+                with(
+                  body: "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"Content-Type\"\r\n\r\napplication/octet-stream\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\nattachments/5/requests/000/000/777/abc/${filename}\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_4me_expiration\"\r\n\r\n2020-11-01T23:59:59Z\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"x_4me_signature\"\r\n\r\nfoobar\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{file.path}\"\r\nContent-Type: application/octet-stream\r\n\r\nfoobar\r\n--0123456789ABLEWASIEREISAWELBA9876543210--",
+                  headers: {
+                    'Accept' => '*/*',
+                    'Accept-Encoding' => 'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
+                    'Authorization' => (authentication == :api_token ? 'Basic c2VjcmV0Ong=' : 'Bearer secret'),
+                    'Content-Type' => 'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
+                    'User-Agent' => 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                  }).
+                to_return(status: 204, body: "", headers: {})
+
+            expect(a.send(:upload_attachment, file.path)).to eq({
+              key: "attachments/5/requests/000/000/777/abc/#{File.basename(file.path)}",
+              filesize: 6
+            })
+          end
+        end
       end
     end
   end

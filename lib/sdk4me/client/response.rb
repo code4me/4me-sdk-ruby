@@ -12,7 +12,7 @@ module Sdk4me
     def response
       @response
     end
-    alias_method :raw, :response
+    alias raw response
 
     def body
       @response.body
@@ -31,7 +31,7 @@ module Sdk4me
       end
       begin
         data ||= JSON.parse(@response.body)
-      rescue ::Exception => e
+      rescue StandardError => e
         data = { message: "Invalid JSON - #{e.message} for:\n#{@response.body}" }
       end
       # indifferent access to hashes
@@ -57,7 +57,7 @@ module Sdk4me
     def valid?
       message.nil?
     end
-    alias_method :success?, :valid?
+    alias success? valid?
 
     # +true+ in case of a HTTP 5xx error
     def failure?

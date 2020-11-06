@@ -32,8 +32,8 @@ end
 All options available:
 
 * _logger_:         The [Ruby Logger](http://www.ruby-doc.org/stdlib-1.9.3/libdoc/logger/rdoc/Logger.html) instance, default: `Logger.new(STDOUT)`
-* _host_:           The [4me API host](https://developer.4me.com/v1/#service-url), default: 'https://api.4me.com'
-* _api_version_:    The [4me API version](https://developer.4me.com/v1/#service-url), default: 'v1'
+* _host_:           The [4me REST API host](https://developer.4me.com/v1/#service-url), default: 'https://api.4me.com'
+* _api_version_:    The [4me REST API version](https://developer.4me.com/v1/#service-url), default: 'v1'
 * _access_token_:   (**required**) The [4me access token](https://developer.4me.com/v1/#authentication)
 * _api_token_:      (**deprecated**) The [4me API token](https://developer.4me.com/v1/#api-tokens)
 * _account_:        Specify a [different account](https://developer.4me.com/v1/#multiple-accounts) to work with
@@ -44,7 +44,7 @@ All options available:
   Set to 0 to prevent retries.
 * _read_timeout_:   [HTTP read timeout](http://ruby-doc.org/stdlib-2.0.0/libdoc/net/http/rdoc/Net/HTTP.html#method-i-read_timeout-3D) in seconds (default = 25)
 * _block_at_rate_limit_: Set to `true` to block the request until the [rate limit](https://developer.4me.com/v1/#rate-limiting) is lifted, default: `true`<br/>
-  The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_throttle_time_ the request will not be blocked and the throttled response is returned. 
+  The `Retry-After` header is used to compute when the retry should be performed. If that moment is later than the _max_throttle_time_ the request will not be blocked and the throttled response is returned.
 * _max_throttle_time_: maximum nr of seconds to retry a request on a rate limiter (default = 3660 = 1 hour and 1 minute)<br/>
 * _proxy_host_:     Define in case HTTP traffic needs to go through a proxy
 * _proxy_port_:     Port of the proxy, defaults to 8080
@@ -199,39 +199,48 @@ end
 Make sure to validate the success by calling `response.valid?` and to take appropriate action in case the response is not valid.
 
 
-### Note Attachments
+### Attachments
 
-To add attachments to a note is rather tricky when done manually as it involves separate file uploads to Amazon S3 and sending
-confirmations back to 4me.
+Adding attachments and inline images to rich text fields is a two-step process.
+First upload the attachments to 4me, and then refer to the uploaded attachments
+when creating or updating a 4me record.
 
-To make it easy, a special `attachments` parameter can be added when using the `post` or `put` method when the `note` field is available.
+To make this process easy, refer to the files using string filepaths or
+File references:
 
 ```
 response = Sdk4me::Client.new.put('requests/416621', {
   status: 'waiting_for_customer',
-  note: 'Please complete the attached forms and reassign the request back to us.',
-  attachments: ['/tmp/forms/Inventory.xls', '/tmp/forms/PersonalData.xls']
+  note: 'Please complete the attached forms and assign the request back to us.',
+  note_attachments: [
+    '/tmp/forms/README.txt',
+    File.open('/tmp/forms/PersonalData.xls', 'rb')
+  ]
 })
 ```
 
-It is also possible to add inline attachments as follows:
+It is also possible to add inline attachments. Refer to attachments by their
+array index, with the index being zero-based. Text can only refer to inline
+images in its own attachments collection. For example:
+
 ```
 response = Sdk4me::Client.new.put('requests/416621', {
-  note: 'Here is some inspiration for you: [attachment:/tmp/images/puppy.png]'
+  note: 'See [note_attachments: 0] and [note_attachments: 1]',
+  note_attachments: ['/tmp/info.png', '/tmp/help.png']
 })
 ```
-Note that only images are accepted as inline attachments.
-
-If an attachment upload fails, the errors are logged but the `post` or `put` request will still be sent to 4me without the
-failed attachments. To receive exceptions add `attachments_exception: true` to the data.
 
 ```
 begin
-  response = Sdk4me::Client.new.put('requests/416621', {
+  data = {
     status: 'waiting_for_customer',
-    note: 'Please complete the attached forms and reassign the request back to us.',
-    attachments: ['/tmp/forms/Inventory.xls', '/tmp/forms/PersonalData.xls']
-  })
+    note: 'Complete the attached forms and assign the request back to us.',
+    note_attachments: [
+      '/tmp/forms/Inventory.xls',
+      '/tmp/forms/data.xls'
+    ]
+  }
+  response = Sdk4me::Client.new.put('requests/416621', data)
   if response.valid?
     puts "Request #{response[:id]} updated and attachments added to the note"
   else

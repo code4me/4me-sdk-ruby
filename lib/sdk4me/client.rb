@@ -37,8 +37,8 @@ module Sdk4me
     #
     # All options available:
     #  - logger:      The Ruby Logger instance, default: Logger.new(STDOUT)
-    #  - host:        The 4me API host, default: 'https://api.4me.com'
-    #  - api_version: The 4me API version, default: 'v1'
+    #  - host:        The 4me REST API host, default: 'https://api.4me.com'
+    #  - api_version: The 4me REST API version, default: 'v1'
     #  - access_token: *required* The 4me access token
     #  - account:     Specify a different (trusted) account to work with
     #                 @see https://developer.4me.com/v1/#multiple-accounts
@@ -68,7 +68,7 @@ module Sdk4me
         if option(:api_token).blank?
           raise ::Sdk4me::Exception.new("Missing required configuration option access_token")
         else
-          @logger.info('Use of api_token is deprecated, consider switching to access_token instead.')
+          @logger.info('DEPRECATED: Use of api_token is deprecated, switch to using access_token instead. -- https://developer.4me.com/v1/#authentication')
         end
       end
       @ssl_verify_none = options[:ssl_verify_none]
@@ -111,14 +111,14 @@ module Sdk4me
     end
 
     # send HTTPS PATCH request and return instance of Sdk4me::Response
-    def put(path, data = {}, header = {})
-      _send(json_request(Net::HTTP::Patch, path, data, header))
+    def patch(path, data = {}, header = {})
+      _send(json_request(Net::HTTP::Patch, path, data, expand_header(header)))
     end
-    alias_method :patch, :put
+    alias put patch
 
     # send HTTPS POST request and return instance of Sdk4me::Response
     def post(path, data = {}, header = {})
-      _send(json_request(Net::HTTP::Post, path, data, header))
+      _send(json_request(Net::HTTP::Post, path, data, expand_header(header)))
     end
 
     # upload a CSV file to import
@@ -200,11 +200,11 @@ module Sdk4me
     private
 
     # create a request (place data in body if the request becomes too large)
-    def json_request(request_class, path, data = {}, header = {})
-      Sdk4me::Attachments.new(self).upload_attachments!(path, data)
-      request = request_class.new(expand_path(path), expand_header(header))
+    def json_request(request_class, path, data, header)
+      Sdk4me::Attachments.new(self, path).upload_attachments!(data)
+      request = request_class.new(expand_path(path), header)
       body = {}
-      data.each{ |k,v| body[k.to_s] = typecast(v, false) }
+      data.each { |k,v| body[k.to_s] = typecast(v, false) }
       request.body = body.to_json
       request
     end
@@ -284,7 +284,7 @@ module Sdk4me
         http.use_ssl = ssl
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE if @ssl_verify_none
         http.start{ |_http| _http.request(request) }
-      rescue ::Exception => e
+      rescue StandardError => e
         Struct.new(:body, :message, :code, :header).new(nil, "No Response from Server - #{e.message} for '#{domain}:#{port}#{request.path}'", 500, {})
       end
       response = Sdk4me::Response.new(request, _response)
@@ -373,4 +373,3 @@ module Net
     end
   end
 end
-
