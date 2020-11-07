@@ -21,7 +21,10 @@ require 'active_support/core_ext/hash/indifferent_access'
 module Sdk4me
   class Client
     MAX_PAGE_SIZE = 100
-    DEFAULT_HEADER = {'Content-Type' => 'application/json'}
+    DEFAULT_HEADER = {
+      'Content-Type' => 'application/json',
+      'User-Agent' => "4me-sdk-ruby/#{Sdk4me::Client::VERSION}"
+    }
 
     # Create a new 4me SDK Client
     #
@@ -44,6 +47,7 @@ module Sdk4me
     #                 @see https://developer.4me.com/v1/#multiple-accounts
     #  - source:      The Source used when creating new records
     #                 @see https://developer.4me.com/v1/general/source/
+    #  - user_agent:  The User-Agent header of each request
     #
     #  - max_retry_time: maximum nr of seconds to wait for server to respond (default = 5400 = 1.5 hours)
     #                    the sleep time between retries starts at 2 seconds and doubles after each retry
@@ -226,7 +230,9 @@ module Sdk4me
       end
       if option(:source)
         header['X-4me-Source'] = option(:source)
-        header['HTTP_USER_AGENT'] = option(:source)
+      end
+      if option(:user_agent)
+        header['User-Agent'] = option(:user_agent)
       end
       header
     end

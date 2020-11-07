@@ -258,7 +258,7 @@ describe Sdk4me::Attachments do
                         'Accept'=>'*/*',
                         'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
                         'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
-                        'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                        'User-Agent'=>"Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}"
                        }).
                      to_return(status: 200, body: "", headers: {})
 
@@ -283,7 +283,7 @@ describe Sdk4me::Attachments do
                          'Accept'=>'*/*',
                          'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
                          'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
-                         'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                         'User-Agent'=>"Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}"
                        }).
                      to_return(status: 400, body: "<Error><Message>Foo Bar Failure</Message></Error>", headers: {})
 
@@ -325,7 +325,7 @@ describe Sdk4me::Attachments do
                     'Accept-Encoding' => 'gzip;q=1.0,deflate;q=0.6,identity;q=0.3',
                     'Authorization' => (authentication == :api_token ? 'Basic c2VjcmV0Ong=' : 'Bearer secret'),
                     'Content-Type' => 'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210',
-                    'User-Agent' => 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'
+                    'User-Agent' => "Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}"
                   }).
                 to_return(status: 204, body: "", headers: {})
 

@@ -115,6 +115,20 @@ describe Sdk4me::Client do
         expect(stub).to have_been_requested
       end
 
+      it 'should add a default User-Agent header' do
+        client = client(authentication)
+        stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'User-Agent' =>  "4me-sdk-ruby/#{Sdk4me::Client::VERSION}"}).to_return(body: {name: 'my name'}.to_json)
+        client.get('me')
+        expect(stub).to have_been_requested
+      end
+
+      it 'should override the default User-Agent header' do
+        client = client(authentication,  user_agent: 'Foo/1.0' )
+        stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'User-Agent' =>  'Foo/1.0'}).to_return(body: {name: 'my name'}.to_json)
+        client.get('me')
+        expect(stub).to have_been_requested
+      end
+
       it 'should be able to override headers' do
         stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'Content-Type' => 'application/x-www-form-urlencoded'}).to_return(body: {name: 'my name'}.to_json)
         client(authentication).get('me', {}, {'Content-Type' => 'application/x-www-form-urlencoded'})
@@ -294,7 +308,7 @@ describe Sdk4me::Client do
       before(:each) do
         csv_mime_type = ['text/csv', 'text/comma-separated-values'].detect{|t| MIME::Types[t].any?} # which mime type is used depends on version of mime-types gem
         @multi_part_body = "--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"type\"\r\n\r\npeople\r\n--0123456789ABLEWASIEREISAWELBA9876543210\r\nContent-Disposition: form-data; name=\"file\"; filename=\"#{@fixture_dir}/people.csv\"\r\nContent-Type: #{csv_mime_type}\r\n\r\nPrimary Email,Name\nchess.cole@example.com,Chess Cole\ned.turner@example.com,Ed Turner\r\n--0123456789ABLEWASIEREISAWELBA9876543210--"
-        @multi_part_headers = {'Accept'=>'*/*', 'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210', 'User-Agent'=>'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6'}
+        @multi_part_headers = {'Accept'=>'*/*', 'Content-Type'=>'multipart/form-data; boundary=0123456789ABLEWASIEREISAWELBA9876543210', 'User-Agent'=>"Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}"}
 
         @import_queued_response = {body: {state: 'queued'}.to_json}
         @import_processing_response = {body: {state: 'processing'}.to_json}
