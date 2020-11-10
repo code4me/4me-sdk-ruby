@@ -123,15 +123,21 @@ describe Sdk4me::Client do
       end
 
       it 'should override the default User-Agent header' do
-        client = client(authentication,  user_agent: 'Foo/1.0' )
+        client = client(authentication, user_agent: 'Foo/1.0' )
         stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'User-Agent' =>  'Foo/1.0'}).to_return(body: {name: 'my name'}.to_json)
         client.get('me')
         expect(stub).to have_been_requested
       end
 
-      it 'should be able to override headers' do
+      it 'should be able to override default headers' do
         stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'Content-Type' => 'application/x-www-form-urlencoded'}).to_return(body: {name: 'my name'}.to_json)
         client(authentication).get('me', {}, {'Content-Type' => 'application/x-www-form-urlencoded'})
+        expect(stub).to have_been_requested
+      end
+
+      it 'should be able to override option headers' do
+        stub = stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).with(headers: {'X-4me-Source' => 'foo'}).to_return(body: {name: 'my name'}.to_json)
+        client(authentication, source: 'myapp').get('me', {}, {'X-4me-Source' => 'foo'})
         expect(stub).to have_been_requested
       end
 

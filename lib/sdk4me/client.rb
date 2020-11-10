@@ -219,8 +219,8 @@ module Sdk4me
     end
 
     # Expand the given header with the default header
-    def expand_header(header = {})
-      header = DEFAULT_HEADER.merge(header)
+    def expand_header(headers = {})
+      header = DEFAULT_HEADER.dup
       header['X-4me-Account'] = option(:account) if option(:account)
       if option(:access_token).present?
         header['AUTHORIZATION'] = 'Bearer ' + option(:access_token)
@@ -234,6 +234,7 @@ module Sdk4me
       if option(:user_agent)
         header['User-Agent'] = option(:user_agent)
       end
+      header.merge!(headers)
       header
     end
 
