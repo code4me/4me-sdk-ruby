@@ -1,18 +1,12 @@
 module Sdk4me
   class Response
+    attr_reader :request, :response
+    alias raw response
+
     def initialize(request, response)
       @request = request
       @response = response
     end
-
-    def request
-      @request
-    end
-
-    def response
-      @response
-    end
-    alias raw response
 
     def body
       @response.body
@@ -22,12 +16,13 @@ module Sdk4me
     # If the response is not +valid?+ it is a Hash with 'message' and optionally 'errors'
     def json
       return @json if defined?(@json)
+
       # no content, no JSON
       if @response.code.to_s == '204'
         data = {}
       elsif @response.body.blank?
         # no body, no json
-        data = {message: @response.message.blank? ? 'empty body' : @response.message.strip}
+        data = { message: @response.message.blank? ? 'empty body' : @response.message.strip }
       end
       begin
         data ||= JSON.parse(@response.body)
@@ -69,15 +64,19 @@ module Sdk4me
     # @param keys: a single key or a key-path separated by comma
     def[](*keys)
       values = json.is_a?(Array) ? json : [json]
-      keys.each { |key| values = values.map{ |value| value.is_a?(Hash) ? value[key] : nil} }
+      keys.each { |key| values = values.map { |value| value.is_a?(Hash) ? value[key] : nil } }
       json.is_a?(Array) ? values : values.first
     end
 
     # The nr of resources found
     def size
-      @size ||= message ? 0 : json.is_a?(Array) ? json.size : 1
+      @size ||= if message
+                  0
+                else
+                  json.is_a?(Array) ? json.size : 1
+                end
     end
-    alias :count :size
+    alias count size
 
     # pagination - per page
     def per_page
@@ -103,12 +102,12 @@ module Sdk4me
     # Link: <https://api.4me.com/v1/requests?page=1&per_page=25>; rel="first", <https://api.4me.com/v1/requests?page=2&per_page=25>; rel="prev", etc.
     def pagination_link(relation)
       # split on ',' select the [url] in '<[url]>; rel="[relation]"', compact to all url's found (at most one) and take the first
-      (@pagination_links ||= {})[relation] ||= @response.header['Link'] && @response.header['Link'].split(/,\s*<?/).map{ |link| link[/^\s*<?(.*?)>?;\s*rel="#{relation.to_s}"\s*$/, 1] }.compact.first
+      (@pagination_links ||= {})[relation] ||= @response.header['Link'] && @response.header['Link'].split(/,\s*<?/).map { |link| link[/^\s*<?(.*?)>?;\s*rel="#{relation}"\s*$/, 1] }.compact.first
     end
 
     # pagination urls (relative paths without server) - relations :first, :prev, :next, :last
     def pagination_relative_link(relation)
-      (@pagination_relative_links ||= {})[relation] ||= pagination_link(relation) && pagination_link(relation)[/^https?:\/\/[^\/]*(.*)/, 1]
+      (@pagination_relative_links ||= {})[relation] ||= pagination_link(relation) && pagination_link(relation)[%r{^https?://[^/]*(.*)}, 1]
     end
 
     # +true+ if the response is invalid because of throttling
@@ -117,12 +116,11 @@ module Sdk4me
     end
 
     def retry_after
-      @current_page ||= @response.header['Retry-After'].to_i
+      @retry_after ||= @response.header['Retry-After'].to_i
     end
 
     def to_s
       valid? ? json.to_s : message
     end
-
   end
 end

@@ -5,7 +5,7 @@ module Sdk4me
   include GemConfig::Base
 
   with_configuration do
-    has :logger, classes: ::Logger, default: ::Logger.new(STDOUT)
+    has :logger, classes: ::Logger, default: ::Logger.new($stdout)
 
     has :host, classes: String, default: 'https://api.4me.com'
     has :api_version, values: ['v1'], default: 'v1'
@@ -31,8 +31,9 @@ module Sdk4me
     configuration.logger
   end
 
-  class Exception < ::Exception; end # ::Sdk4me::Exception class
+  class Exception < ::Exception
+  end
 
-  class UploadFailed < Exception; end # ::Sdk4me::UploadFailed class
-
+  class UploadFailed < Exception
+  end
 end

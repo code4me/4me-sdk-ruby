@@ -1,7 +1,7 @@
 module Sdk4me
   class Attachments
-    S3_PROVIDER = 's3'
-    FILENAME_TEMPLATE = '${filename}'
+    S3_PROVIDER = 's3'.freeze
+    FILENAME_TEMPLATE = '${filename}'.freeze
 
     def initialize(client, path)
       @client = client
@@ -40,6 +40,7 @@ module Sdk4me
       data.each do |field, value|
         next unless field.to_s.end_with?('_attachments')
         next unless value.is_a?(Enumerable) && value.any?
+
         value.map! { |attachment| upload_attachment(attachment) }.compact!
         field_attachments << field if value.any?
       end

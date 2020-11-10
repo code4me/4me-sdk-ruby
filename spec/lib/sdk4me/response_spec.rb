@@ -13,28 +13,28 @@ describe Sdk4me::Response do
 
   def credentials(authentication)
     if authentication == :api_token
-      { basic_auth: ['secret', 'x'] }
+      { basic_auth: %w[secret x] }
     else
-      { headers: {'Authorization' => 'Bearer secret'} }
+      { headers: { 'Authorization' => 'Bearer secret' } }
     end
   end
 
-  [:api_token, :access_token].each do |authentication|
+  %i[api_token access_token].each do |authentication|
     context "#{authentication} - " do
       before(:each) do
         @person_hash = {
-          addresses:[],
-          contacts:[ {id: 1365, label: 'work', telephone: '7139872946'} ],
+          addresses: [],
+          contacts: [{ id: 1365, label: 'work', telephone: '7139872946' }],
           id: 562,
           information: 'Info about John.',
           job_title: 'rolling stone',
           locale: 'en-US',
           location: 'Top of John Hill',
           name: 'John',
-          organization: {id: 20, name: 'SDK4ME Institute'},
+          organization: { id: 20, name: 'SDK4ME Institute' },
           picture_uri: nil,
           primary_email: 'john@example.com',
-          site: {id:14, name: 'IT Training Facility'},
+          site: { id: 14, name: 'IT Training Facility' },
           time_format_24h: false,
           time_zone: 'Central Time (US & Canada)'
         }
@@ -42,9 +42,9 @@ describe Sdk4me::Response do
         @response_hash = client(authentication).get('me')
 
         @people_array = [
-          {id: 562, name: 'John', organization: { id: 20, name: 'SDK4ME Institute'}, site: {id: 14, name: 'IT Training Facility'} },
-          {id: 560, name: 'Lucas', organization: { id: 20, name: 'SDK4ME Institute', office: { name: 'The Office'}}, site: {id: 14, name: 'IT Training Facility'} },
-          {id: 561, name: 'Sheryl', organization: { id: 20, name: 'SDK4ME Institute'}, site: {id: 14, name: 'IT Training Facility'} }
+          { id: 562, name: 'John', organization: { id: 20, name: 'SDK4ME Institute' }, site: { id: 14, name: 'IT Training Facility' } },
+          { id: 560, name: 'Lucas', organization: { id: 20, name: 'SDK4ME Institute', office: { name: 'The Office' } }, site: { id: 14, name: 'IT Training Facility' } },
+          { id: 561, name: 'Sheryl', organization: { id: 20, name: 'SDK4ME Institute' }, site: { id: 14, name: 'IT Training Facility' } }
         ]
         stub_request(:get, 'https://api.4me.com/v1/people').to_return(body: @people_array.to_json).with(credentials(authentication))
         @response_array = client(authentication).get('people')
@@ -98,7 +98,7 @@ describe Sdk4me::Response do
         end
 
         it 'should add a message if the HTTP response is not OK' do
-          stub_request(:get, 'https://api.4me.com/v1/organizations').with(credentials(authentication)).to_return(status: 429, body: {message: 'Too Many Requests'}.to_json)
+          stub_request(:get, 'https://api.4me.com/v1/organizations').with(credentials(authentication)).to_return(status: 429, body: { message: 'Too Many Requests' }.to_json)
           response = client(authentication).get('organizations')
 
           message = '429: Too Many Requests'
@@ -124,7 +124,6 @@ describe Sdk4me::Response do
         it 'should have a blank message when single record is succesfully retrieved' do
           expect(@response_array.message).to be_nil
         end
-
       end
 
       it 'should define empty' do
@@ -138,12 +137,12 @@ describe Sdk4me::Response do
 
       context 'valid' do
         it 'should be valid when the message is nil' do
-          expect(@response_hash).to receive(:message){ nil }
+          expect(@response_hash).to receive(:message) { nil }
           expect(@response_hash.valid?).to be_truthy
         end
 
         it 'should not be valid when the message is not nil' do
-          expect(@response_array).to receive(:message){ 'invalid' }
+          expect(@response_array).to receive(:message) { 'invalid' }
           expect(@response_array.valid?).to be_falsey
         end
       end
@@ -165,7 +164,7 @@ describe Sdk4me::Response do
 
         context 'list of records' do
           it 'should delegate [] to the json of each record' do
-            expect(@response_array['name']).to eq(['John', 'Lucas', 'Sheryl'])
+            expect(@response_array['name']).to eq(%w[John Lucas Sheryl])
           end
 
           it 'should allow multiple keys' do
@@ -188,7 +187,7 @@ describe Sdk4me::Response do
         end
 
         it 'should return nil if an error message is present' do
-          expect(@response_hash).to receive(:message){ 'error message' }
+          expect(@response_hash).to receive(:message) { 'error message' }
           expect(@response_hash.size).to eq(0)
         end
       end
@@ -203,7 +202,7 @@ describe Sdk4me::Response do
         end
 
         it 'should return nil if an error message is present' do
-          expect(@response_hash).to receive(:message){ 'error message' }
+          expect(@response_hash).to receive(:message) { 'error message' }
           expect(@response_hash.count).to eq(0)
         end
       end
@@ -215,9 +214,9 @@ describe Sdk4me::Response do
             'X-Pagination-Current-Page' => 1,
             'X-Pagination-Total-Pages' => 2,
             'X-Pagination-Total-Entries' => 5,
-            'Link' => '<https://api.4me.com/v1/people?page=1&per_page=3>; rel="first",<https://api.4me.com/v1/people?page=2&per_page=3>; rel="next", <https://api.4me.com/v1/people?page=2&per_page=3>; rel="last"',
+            'Link' => '<https://api.4me.com/v1/people?page=1&per_page=3>; rel="first",<https://api.4me.com/v1/people?page=2&per_page=3>; rel="next", <https://api.4me.com/v1/people?page=2&per_page=3>; rel="last"'
           }
-          allow(@response_array.response).to receive('header'){ @pagination_header }
+          allow(@response_array.response).to receive('header') { @pagination_header }
         end
 
         it "should retrieve per_page from the 'X-Pagination-Per-Page' header" do
@@ -236,19 +235,17 @@ describe Sdk4me::Response do
           expect(@response_array.total_entries).to eq(5)
         end
 
-        {first: 'https://api.4me.com/v1/people?page=1&per_page=3',
-         next: 'https://api.4me.com/v1/people?page=2&per_page=3',
-         last: 'https://api.4me.com/v1/people?page=2&per_page=3'}.each do |relation, link|
-
+        { first: 'https://api.4me.com/v1/people?page=1&per_page=3',
+          next: 'https://api.4me.com/v1/people?page=2&per_page=3',
+          last: 'https://api.4me.com/v1/people?page=2&per_page=3' }.each do |relation, link|
           it "should define pagination link for :#{relation}" do
             expect(@response_array.pagination_link(relation)).to eq(link)
           end
         end
 
-        {first: '/v1/people?page=1&per_page=3',
-         next: '/v1/people?page=2&per_page=3',
-         last: '/v1/people?page=2&per_page=3'}.each do |relation, link|
-
+        { first: '/v1/people?page=1&per_page=3',
+          next: '/v1/people?page=2&per_page=3',
+          last: '/v1/people?page=2&per_page=3' }.each do |relation, link|
           it "should define pagination relative link for :#{relation}" do
             expect(@response_array.pagination_relative_link(relation)).to eq(link)
           end
@@ -268,7 +265,7 @@ describe Sdk4me::Response do
         end
 
         it 'should check the return message' do
-          stub_request(:get, 'https://api.4me.com/v1/organizations').with(credentials(authentication)).to_return(status: 500, body: {message: 'Too Many Requests'}.to_json )
+          stub_request(:get, 'https://api.4me.com/v1/organizations').with(credentials(authentication)).to_return(status: 500, body: { message: 'Too Many Requests' }.to_json)
           response = client(authentication).get('organizations')
           expect(response.throttled?).to be_truthy
         end
@@ -285,7 +282,6 @@ describe Sdk4me::Response do
           expect(response.to_s).to eq('429: empty body')
         end
       end
-
     end
   end
 end

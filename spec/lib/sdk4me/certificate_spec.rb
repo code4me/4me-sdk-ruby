@@ -1,7 +1,6 @@
 require 'spec_helper'
 
 describe 'ca-bundle.crt' do
-
   it 'should be able to connect to the 4me REST API' do
     WebMock.allow_net_connect!
     client = Sdk4me::Client.new(api_token: 'invalid', max_retry_time: -1)
@@ -37,6 +36,6 @@ describe 'ca-bundle.crt' do
     http.use_ssl = true
 
     # no SSL error please
-    expect{ http.start{ |_http| _http.request(Net::HTTP::Get.new('/exports/20141107/')) } }.to never_raise(OpenSSL::SSL::SSLError)
+    expect { http.start { |transport| transport.request(Net::HTTP::Get.new('/exports/20141107/')) } }.to never_raise(OpenSSL::SSL::SSLError)
   end
 end

@@ -8,7 +8,7 @@ require 'mime/types'
 # Created:: 22 Feb 2008
 module Sdk4me
   module Multipart
-    VERSION = "1.0.0" unless const_defined?(:VERSION)
+    VERSION = '1.0.0'.freeze unless const_defined?(:VERSION)
 
     # Formats a given hash as a multipart form post
     # If a hash value responds to :string or :read messages, then it is
@@ -16,10 +16,10 @@ module Sdk4me
     # to be a string
     class Post
       # We have to pretend like we're a web browser...
-      USERAGENT = "Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}" unless const_defined?(:USERAGENT)
-      BOUNDARY = '0123456789ABLEWASIEREISAWELBA9876543210' unless const_defined?(:BOUNDARY)
-      CONTENT_TYPE = "multipart/form-data; boundary=#{ BOUNDARY }" unless const_defined?(:CONTENT_TYPE)
-      HEADER = { 'Content-Type' => CONTENT_TYPE, 'User-Agent' => USERAGENT } unless const_defined?(:HEADER)
+      USERAGENT = "Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}".freeze unless const_defined?(:USERAGENT)
+      BOUNDARY = '0123456789ABLEWASIEREISAWELBA9876543210'.freeze unless const_defined?(:BOUNDARY)
+      CONTENT_TYPE = "multipart/form-data; boundary=#{BOUNDARY}".freeze unless const_defined?(:CONTENT_TYPE)
+      HEADER = { 'Content-Type' => CONTENT_TYPE, 'User-Agent' => USERAGENT }.freeze unless const_defined?(:HEADER)
 
       def self.prepare_query(params)
         fp = []
@@ -33,24 +33,22 @@ module Sdk4me
         end
 
         # Assemble the request body using the special multipart format
-        query = fp.map{ |p| "--#{BOUNDARY}\r\n#{p.to_multipart}" }.join  + "--#{BOUNDARY}--"
-        return query, HEADER
+        query = fp.map { |p| "--#{BOUNDARY}\r\n#{p.to_multipart}" }.join + "--#{BOUNDARY}--"
+        [query, HEADER]
       end
     end
-
-    private
 
     # Formats a basic string key/value pair for inclusion with a multipart post
     class StringParam
       attr_accessor :k, :v
 
-      def initialize(k, v)
-        @k = k
-        @v = v
+      def initialize(key, value)
+        @k = key
+        @v = value
       end
 
       def to_multipart
-        return %(Content-Disposition: form-data; name="#{CGI::escape(k.to_s)}"\r\n\r\n#{v}\r\n)
+        %(Content-Disposition: form-data; name="#{CGI.escape(k.to_s)}"\r\n\r\n#{v}\r\n)
       end
     end
 
@@ -59,16 +57,16 @@ module Sdk4me
     class FileParam
       attr_accessor :k, :filename, :content
 
-      def initialize(k, filename, content)
-        @k = k
+      def initialize(key, filename, content)
+        @k = key
         @filename = filename
         @content = content
       end
 
       def to_multipart
         # If we can tell the possible mime-type from the filename, use the first in the list; otherwise, use "application/octet-stream"
-        mime_type = MIME::Types.type_for(filename)[0] || MIME::Types["application/octet-stream"][0]
-        return %(Content-Disposition: form-data; name="#{CGI::escape(k.to_s)}"; filename="#{filename}"\r\nContent-Type: #{ mime_type.simplified }\r\n\r\n#{ content }\r\n)
+        mime_type = MIME::Types.type_for(filename)[0] || MIME::Types['application/octet-stream'][0]
+        %(Content-Disposition: form-data; name="#{CGI.escape(k.to_s)}"; filename="#{filename}"\r\nContent-Type: #{mime_type.simplified}\r\n\r\n#{content}\r\n)
       end
     end
   end

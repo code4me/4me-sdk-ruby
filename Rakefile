@@ -1,4 +1,4 @@
-require "bundler/gem_tasks"
+require 'bundler/gem_tasks'
 
 Bundler::GemHelper.install_tasks
 
@@ -7,5 +7,10 @@ require 'rspec/core/rake_task'
 
 RSpec::Core::RakeTask.new(:spec)
 
+desc 'Run rubocop'
+task :rubocop do
+  sh 'rubocop -f s'
+end
+
 desc 'Run the specs.'
-task :default => :spec
+task default: %i[spec rubocop]

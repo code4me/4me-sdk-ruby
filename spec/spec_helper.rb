@@ -1,9 +1,8 @@
-# -*- encoding : utf-8 -*-
 dir = File.dirname(__FILE__)
-$LOAD_PATH.unshift dir + '/../lib'
+$LOAD_PATH.unshift "#{dir}/../lib"
 $LOAD_PATH.unshift dir
 
-STDERR.puts("Running specs using ruby version #{RUBY_VERSION}")
+warn("Running specs using ruby version #{RUBY_VERSION}")
 
 require 'simplecov'
 SimpleCov.start
@@ -26,12 +25,12 @@ require 'sdk4me/client'
 
 # Requires supporting ruby files with custom matchers and macros, etc,
 # in spec/support/ and its subdirectories.
-Dir["#{dir}/support/**/*.rb"].each { |f| require f }
+Dir["#{dir}/support/**/*.rb"].sort.each { |f| require f }
 
 RSpec.configure do |config|
   config.before(:each) do
-    log_dir = File.dirname(__FILE__) + '/log'
-    Dir.mkdir(log_dir) unless File.exists?(log_dir)
+    log_dir = "#{File.dirname(__FILE__)}/log"
+    Dir.mkdir(log_dir) unless File.exist?(log_dir)
     Sdk4me.configuration.logger = Logger.new("#{log_dir}/test.log")
     @spec_dir = dir
     @fixture_dir = "#{dir}/support/fixtures"
@@ -43,6 +42,4 @@ RSpec.configure do |config|
   # the seed, which is printed after each run.
   #     --seed 1234
   config.order = 'random'
-
 end
-

@@ -13,9 +13,9 @@ require 'sdk4me/client/multipart'
 require 'sdk4me/client/attachments'
 
 # cherry-pick some core extensions from active support
-require 'active_support/core_ext/module/aliasing.rb'
+require 'active_support/core_ext/module/aliasing'
 require 'active_support/core_ext/object/blank'
-require 'active_support/core_ext/object/try.rb'
+require 'active_support/core_ext/object/try'
 require 'active_support/core_ext/hash/indifferent_access'
 
 module Sdk4me
@@ -24,7 +24,7 @@ module Sdk4me
     DEFAULT_HEADER = {
       'Content-Type' => 'application/json',
       'User-Agent' => "4me-sdk-ruby/#{Sdk4me::Client::VERSION}"
-    }
+    }.freeze
 
     # Create a new 4me SDK Client
     #
@@ -63,14 +63,14 @@ module Sdk4me
     #  - proxy_password: Proxy password
     def initialize(options = {})
       @options = Sdk4me.configuration.current.merge(options)
-      [:host, :api_version].each do |required_option|
-        raise ::Sdk4me::Exception.new("Missing required configuration option #{required_option}") if option(required_option).blank?
+      %i[host api_version].each do |required_option|
+        raise ::Sdk4me::Exception, "Missing required configuration option #{required_option}" if option(required_option).blank?
       end
       @logger = @options[:logger]
       @ssl, @domain, @port = ssl_domain_port_path(option(:host))
       unless option(:access_token).present?
         if option(:api_token).blank?
-          raise ::Sdk4me::Exception.new("Missing required configuration option access_token")
+          raise ::Sdk4me::Exception, 'Missing required configuration option access_token'
         else
           @logger.info('DEPRECATED: Use of api_token is deprecated, switch to using access_token instead. -- https://developer.4me.com/v1/#authentication')
         end
@@ -88,15 +88,16 @@ module Sdk4me
     # Returns total nr of resources yielded (for logging)
     def each(path, params = {}, header = {}, &block)
       # retrieve the resources using the max page size (least nr of API calls)
-      next_path = expand_path(path, {per_page: MAX_PAGE_SIZE, page: 1}.merge(params))
+      next_path = expand_path(path, { per_page: MAX_PAGE_SIZE, page: 1 }.merge(params))
       size = 0
       while next_path
         # retrieve the records (with retry and optionally wait for rate-limit)
         response = get(next_path, {}, header)
         # raise exception in case the response is invalid
-        raise ::Sdk4me::Exception.new(response.message) unless response.valid?
+        raise ::Sdk4me::Exception, response.message unless response.valid?
+
         # yield the resources
-        response.json.each{ |resource| yield resource }
+        response.json.each(&block)
         size += response.json.size
         # go to the next page
         next_path = response.pagination_relative_link(:next)
@@ -139,17 +140,19 @@ module Sdk4me
       @logger.info { "Import file '#{csv.path}' successfully uploaded with token '#{response[:token]}'." } if response.valid?
 
       if block_until_completed
-        raise ::Sdk4me::UploadFailed.new("Failed to queue #{type} import. #{response.message}") unless response.valid?
+        raise ::Sdk4me::UploadFailed, "Failed to queue #{type} import. #{response.message}" unless response.valid?
+
         token = response[:token]
-        while true
+        loop do
           response = get("/import/#{token}")
           unless response.valid?
             sleep(5)
             response = get("/import/#{token}") # single retry to recover from a network error
-            raise ::Sdk4me::Exception.new("Unable to monitor progress for #{type} import. #{response.message}") unless response.valid?
+            raise ::Sdk4me::Exception, "Unable to monitor progress for #{type} import. #{response.message}" unless response.valid?
           end
           # wait 30 seconds while the response is OK and import is still busy
-          break unless ['queued', 'processing'].include?(response[:state])
+          break unless %w[queued processing].include?(response[:state])
+
           @logger.debug { "Import of '#{csv.path}' is #{response[:state]}. Checking again in 30 seconds." }
           sleep(30)
         end
@@ -165,7 +168,7 @@ module Sdk4me
     # @param locale: Required for translations export
     # @raise Sdk4me::Exception in case the export progress could not be monitored
     def export(types, from = nil, block_until_completed = false, locale = nil)
-      data = {type: [types].flatten.join(',')}
+      data = { type: [types].flatten.join(',') }
       data[:from] = from unless from.blank?
       data[:locale] = locale unless locale.blank?
       response = post('/export', data)
@@ -178,17 +181,19 @@ module Sdk4me
       end
 
       if block_until_completed
-        raise ::Sdk4me::UploadFailed.new("Failed to queue '#{data[:type]}' export. #{response.message}") unless response.valid?
+        raise ::Sdk4me::UploadFailed, "Failed to queue '#{data[:type]}' export. #{response.message}" unless response.valid?
+
         token = response[:token]
-        while true
+        loop do
           response = get("/export/#{token}")
           unless response.valid?
             sleep(5)
             response = get("/export/#{token}") # single retry to recover from a network error
-            raise ::Sdk4me::Exception.new("Unable to monitor progress for '#{data[:type]}' export. #{response.message}") unless response.valid?
+            raise ::Sdk4me::Exception, "Unable to monitor progress for '#{data[:type]}' export. #{response.message}" unless response.valid?
           end
           # wait 30 seconds while the response is OK and export is still busy
-          break unless ['queued', 'processing'].include?(response[:state])
+          break unless %w[queued processing].include?(response[:state])
+
           @logger.debug { "Export of '#{data[:type]}' is #{response[:state]}. Checking again in 30 seconds." }
           sleep(30)
         end
@@ -197,9 +202,7 @@ module Sdk4me
       response
     end
 
-    def logger
-      @logger
-    end
+    attr_reader :logger
 
     private
 
@@ -208,7 +211,7 @@ module Sdk4me
       Sdk4me::Attachments.new(self, path).upload_attachments!(data)
       request = request_class.new(expand_path(path), header)
       body = {}
-      data.each { |k,v| body[k.to_s] = typecast(v, false) }
+      data.each { |k, v| body[k.to_s] = typecast(v, false) }
       request.body = body.to_json
       request
     end
@@ -223,17 +226,13 @@ module Sdk4me
       header = DEFAULT_HEADER.dup
       header['X-4me-Account'] = option(:account) if option(:account)
       if option(:access_token).present?
-        header['AUTHORIZATION'] = 'Bearer ' + option(:access_token)
+        header['AUTHORIZATION'] = "Bearer #{option(:access_token)}"
       else
         token_and_password = option(:api_token).include?(':') ? option(:api_token) : "#{option(:api_token)}:x"
-        header['AUTHORIZATION'] = 'Basic ' + [token_and_password].pack('m*').gsub(/\s/, '')
+        header['AUTHORIZATION'] = "Basic #{[token_and_password].pack('m*').gsub(/\s/, '')}"
       end
-      if option(:source)
-        header['X-4me-Source'] = option(:source)
-      end
-      if option(:user_agent)
-        header['User-Agent'] = option(:user_agent)
-      end
+      header['X-4me-Source'] = option(:source) if option(:source)
+      header['User-Agent'] = option(:user_agent) if option(:user_agent)
       header.merge!(headers)
       header
     end
@@ -245,8 +244,8 @@ module Sdk4me
     #   fields: ['id', 'created_at', 'sourceID']
     def expand_path(path, params = {})
       path = path.dup
-      path = "/#{path}" unless path =~ /^\// # make sure path starts with /
-      path = "/#{option(:api_version)}#{path}" unless path =~ /^\/v[\d.]+\// # preprend api version
+      path = "/#{path}" unless path =~ %r{^/} # make sure path starts with /
+      path = "/#{option(:api_version)}#{path}" unless path =~ %r{^/v[\d.]+/} # preprend api version
       params.each do |key, value|
         path << (path['?'] ? '&' : '?')
         path << expand_param(key, value)
@@ -265,18 +264,20 @@ module Sdk4me
     # Parameter value typecasting
     def typecast(value, escape = true)
       case value.class.name.to_sym
-        when :NilClass    then ''
-        when :String      then escape ? uri_escape(value) : value
-        when :TrueClass   then 'true'
-        when :FalseClass  then 'false'
-        when :DateTime    then datetime = value.new_offset(0).iso8601; escape ? uri_escape(datetime) : datetime
-        when :Date        then value.strftime("%Y-%m-%d")
-        when :Time        then value.strftime("%H:%M")
+      when :NilClass    then ''
+      when :String      then escape ? uri_escape(value) : value
+      when :TrueClass   then 'true'
+      when :FalseClass  then 'false'
+      when :DateTime
+        datetime = value.new_offset(0).iso8601
+        escape ? uri_escape(datetime) : datetime
+      when :Date        then value.strftime('%Y-%m-%d')
+      when :Time        then value.strftime('%H:%M')
         # do not convert arrays in put/post requests as squashing arrays is only used in filtering
-        when :Array       then escape ? value.map{ |v| typecast(v, escape) }.join(',') : value
+      when :Array       then escape ? value.map { |v| typecast(v, escape) }.join(',') : value
         # TODO: temporary for special constructions to update contact details, see Request #1444166
-        when :Hash        then escape ? value.to_s : value
-        else escape ? value.to_json : value.to_s
+      when :Hash        then escape ? value.to_s : value
+      else escape ? value.to_json : value.to_s
       end
     end
 
@@ -284,27 +285,27 @@ module Sdk4me
     # Guaranteed to return a Response, thought it may be +empty?+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
       @logger.debug { "Sending #{request.method} request to #{domain}:#{port}#{request.path}" }
-      _response = begin
+      response = begin
         http_with_proxy = option(:proxy_host).blank? ? Net::HTTP : Net::HTTP::Proxy(option(:proxy_host), option(:proxy_port), option(:proxy_user), option(:proxy_password))
         http = http_with_proxy.new(domain, port)
         http.read_timeout = option(:read_timeout)
         http.use_ssl = ssl
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE if @ssl_verify_none
-        http.start{ |_http| _http.request(request) }
+        http.start { |transport| transport.request(request) }
       rescue StandardError => e
         Struct.new(:body, :message, :code, :header).new(nil, "No Response from Server - #{e.message} for '#{domain}:#{port}#{request.path}'", 500, {})
       end
-      response = Sdk4me::Response.new(request, _response)
-      if response.valid?
-        @logger.debug { "Response:\n#{JSON.pretty_generate(response.json)}" }
-      elsif response.raw.body =~ /^\s*<\?xml/i
-        @logger.debug { "XML response:\n#{response.raw.body}" }
-      elsif '303' == response.raw.code.to_s
-        @logger.debug { "Redirect: #{response.raw.header['Location']}" }
+      resp = Sdk4me::Response.new(request, response)
+      if resp.valid?
+        @logger.debug { "Response:\n#{JSON.pretty_generate(resp.json)}" }
+      elsif resp.raw.body =~ /^\s*<\?xml/i
+        @logger.debug { "XML response:\n#{resp.raw.body}" }
+      elsif resp.raw.code.to_s == '303'
+        @logger.debug { "Redirect: #{resp.raw.header['Location']}" }
       else
-        @logger.error { "#{request.method} request to #{domain}:#{port}#{request.path} failed: #{response.message}" }
+        @logger.error { "#{request.method} request to #{domain}:#{port}#{request.path} failed: #{resp.message}" }
       end
-      response
+      resp
     end
 
     # parse the given URI to [domain, port, ssl, path]
@@ -313,65 +314,70 @@ module Sdk4me
       ssl = uri.scheme == 'https'
       [ssl, uri.host, uri.port, uri.path]
     end
-
   end
 
   module SendWithRateLimitBlock
     # Wraps the _send method with retries when the server does not respond, see +initialize+ option +:rate_limit_block+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
-      return super(request, domain, port, ssl) unless option(:block_at_rate_limit) && option(:max_throttle_time) > 0
+      return super(request, domain, port, ssl) unless option(:block_at_rate_limit) && option(:max_throttle_time).positive?
+
       now = nil
       timed_out = false
-      begin
-        _response = super(request, domain, port, ssl)
+      response = nil
+      loop do
+        response = super(request, domain, port, ssl)
         now ||= Time.now
-        if _response.throttled?
+        if response.throttled?
           # if no Retry-After is not provided, the 4me server is very busy, wait 5 minutes
-          retry_after = _response.retry_after == 0 ? 300 : [_response.retry_after, 2].max
+          retry_after = response.retry_after.zero? ? 300 : [response.retry_after, 2].max
           if (Time.now - now + retry_after) < option(:max_throttle_time)
-            @logger.warn { "Request throttled, trying again in #{retry_after} seconds: #{_response.message}" }
+            @logger.warn { "Request throttled, trying again in #{retry_after} seconds: #{response.message}" }
             sleep(retry_after)
           else
             timed_out = true
           end
         end
-      end while _response.throttled? && !timed_out
-      _response
+        break unless response.throttled? && !timed_out
+      end
+      response
     end
   end
-  Client.send(:prepend, SendWithRateLimitBlock)
+  Client.prepend SendWithRateLimitBlock
 
   module SendWithRetries
     # Wraps the _send method with retries when the server does not respond, see +initialize+ option +:retries+
     def _send(request, domain = @domain, port = @port, ssl = @ssl)
-      return super(request, domain, port, ssl) unless option(:max_retry_time) > 0
+      return super(request, domain, port, ssl) unless option(:max_retry_time).positive?
+
       retries = 0
       sleep_time = 1
       now = nil
       timed_out = false
-      begin
-        _response = super(request, domain, port, ssl)
+      response = nil
+      loop do
+        response = super(request, domain, port, ssl)
         now ||= Time.now
-        if _response.failure?
+        if response.failure?
           sleep_time *= 2
           if (Time.now - now + sleep_time) < option(:max_retry_time)
-            @logger.warn { "Request failed, retry ##{retries += 1} in #{sleep_time} seconds: #{_response.message}" }
+            @logger.warn { "Request failed, retry ##{retries += 1} in #{sleep_time} seconds: #{response.message}" }
             sleep(sleep_time)
           else
             timed_out = true
           end
         end
-      end while _response.failure? && !timed_out
-      _response
+        break unless response.failure? && !timed_out
+      end
+      response
     end
   end
-  Client.send(:prepend, SendWithRetries)
+  Client.prepend SendWithRetries
 end
 
 # HTTPS with certificate bundle
 module Net
   class HTTP
-    alias_method :original_use_ssl=, :use_ssl=
+    alias original_use_ssl= use_ssl=
 
     def use_ssl=(flag)
       self.ca_file = File.expand_path(Sdk4me.configuration.current[:ca_file], __FILE__) if flag

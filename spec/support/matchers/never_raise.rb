@@ -19,28 +19,23 @@ RSpec::Matchers.define :never_raise do |exception_class|
   end
 
   match do |block|
-    begin
-      block.call
-    rescue exception_class => e
-      global_result = "expected #{block.source_location[0]}:#{block.source_location[1]} to never raise #{exception_class.name}, but did: #{e.message}"
-      false  # we did NOT never raise this exception
-
-    rescue RSpec::Expectations::ExpectationNotMetError => exception
-      global_result = "expectation failed inside block at #{block.source_location[0]}:#{block.source_location[1]}: #{exception}"
-      # give us a pretty error message in addition to the error message from the exception
-      raise exception
-
-    rescue
-      # handle other exceptions by reraising them. They are exceptional!!!
-      # (also, no pretty error messages here)
-      raise
-
-    else
-      true   # everything ran, nothing raised at all, thus code did in fact not raise anything
-    end
+    block.call
+  rescue exception_class => e
+    global_result = "expected #{block.source_location[0]}:#{block.source_location[1]} to never raise #{exception_class.name}, but did: #{e.message}"
+    false # we did NOT never raise this exception
+  rescue RSpec::Expectations::ExpectationNotMetError => e
+    global_result = "expectation failed inside block at #{block.source_location[0]}:#{block.source_location[1]}: #{e}"
+    # give us a pretty error message in addition to the error message from the exception
+    raise e
+  rescue StandardError
+    # handle other exceptions by reraising them. They are exceptional!!!
+    # (also, no pretty error messages here)
+    raise
+  else
+    true   # everything ran, nothing raised at all, thus code did in fact not raise anything
   end
 
-  failure_message do |player|
+  failure_message do |_player|
     global_result
   end
 end

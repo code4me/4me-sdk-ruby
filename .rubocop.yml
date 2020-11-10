@@ -1,0 +1,14 @@
+inherit_from: .rubocop_todo.yml
+
+AllCops:
+  TargetRubyVersion: 2.5
+  NewCops: enable
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/MethodLength:
+  Max: 30
