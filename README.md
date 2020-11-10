@@ -357,3 +357,11 @@ puts response.message
 ```
 
 The methods `each` and `import` may throw an `Sdk4me::Exception` in case something failed, see the examples above.
+
+## Changelog
+
+The changelog is available [here](CHANGELOG.md).
+
+## Copyright
+
+Copyright (c) 2020 4me, Inc. See [LICENSE](LICENSE) for further details.

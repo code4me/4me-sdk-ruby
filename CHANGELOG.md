@@ -7,14 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2020-11-14
+## [2.0.0] - (unreleased)
 
 ### Added
 
 - This release contains a breaking change with regards to how to upload
   attachments. See paragraph "Attachments" in the README.md file for details.
+- A default `User-Agent` header is sent with each request.
+- The default `User-Agent` header can be overriden when initializing the Client,
+  and/or when calling individual requests using the `user_agent` key.
 
 ### Changed
+
+- Minimum required ruby version is v2.5.0
+- Updated the Bundle of CA Root Certificate	to the latest version
 
 ### Removed
 
