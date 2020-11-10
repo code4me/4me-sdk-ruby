@@ -38,6 +38,7 @@ All options available:
 * _api_token_:      (**deprecated**) The [4me API token](https://developer.4me.com/v1/#api-tokens)
 * _account_:        Specify a [different account](https://developer.4me.com/v1/#multiple-accounts) to work with
 * _source_:         The [source](https://developer.4me.com/v1/general/source/) used when creating new records
+* _user_agent_:     The User-Agent header of each request. Defaults to 4me-sdk-ruby/(version)
 * _max_retry_time_: maximum nr of seconds to retry a request on a failed response (default = 300 = 5 minutes)<br/>
   The sleep time between retries starts at 2 seconds and doubles after each retry, i.e.
   2, 6, 18, 54, 162, 486, 1458, ... seconds.<br/>
@@ -224,21 +225,11 @@ array index, with the index being zero-based. Text can only refer to inline
 images in its own attachments collection. For example:
 
 ```
-response = Sdk4me::Client.new.put('requests/416621', {
-  note: 'See [note_attachments: 0] and [note_attachments: 1]',
-  note_attachments: ['/tmp/info.png', '/tmp/help.png']
-})
-```
-
-```
 begin
   data = {
     status: 'waiting_for_customer',
-    note: 'Complete the attached forms and assign the request back to us.',
-    note_attachments: [
-      '/tmp/forms/Inventory.xls',
-      '/tmp/forms/data.xls'
-    ]
+    note: 'See [note_attachments: 0] and [note_attachments: 1]',
+    note_attachments: ['/tmp/info.png', '/tmp/help.png']
   }
   response = Sdk4me::Client.new.put('requests/416621', data)
   if response.valid?

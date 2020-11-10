@@ -26,12 +26,15 @@ module Sdk4me
     #        ...
     #      }
     #
-    # After calling this method the data, that will be posted to update the
-    # 4me record, would look similar to:
+    # After calling this method the data that will be posted to update the
+    # 4me record would look similar to:
     #
     #      data = {
     #        note: "Hello ![](storage/abc/adjhajdhjaadf.png) and ![](storage/abc/fskdhakjfkjdssdf.png])",
-    #        note_attachments: ['storage/abc/fskdhakjfkjdssdf.png', 'storage/abc/fskdhakjfkjdssdf.png'],
+    #        note_attachments: [
+    #          { key: 'storage/abc/fskdhakjfkjdssdf.png', filesize: 12345, inline: true },
+    #          { key: 'storage/abc/fskdhakjfkjdssdf.png'], filesize: 98765, inline: true }
+    #        ],
     #        ...
     #      }
     def upload_attachments!(data)
