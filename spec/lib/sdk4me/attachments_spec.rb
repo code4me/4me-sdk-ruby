@@ -42,13 +42,13 @@ describe Sdk4me::Attachments do
             a.upload_attachments!({ note_attachments: [nil] })
           end
 
-          it 'should raise an error if no attachment may be uploaded' do
+          it 'should raise an error if no attachment provider can be determined' do
             a = attachments(authentication, '/requests')
             expect(@client).not_to receive(:send_file)
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 404, body: { message: 'Not Found' }.to_json)
-            expect_log('GET request to api.4me.com:443/v1/requests/attachment_upload failed: 404: Not Found', :error)
-            expect_log('Attachments not supported for /requests', :error)
-            expect { a.upload_attachments!({ note_attachments: ['file1.png'] }) }.to raise_error(::Sdk4me::UploadFailed, 'Attachments not supported for /requests')
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 404, body: { message: 'Not Found' }.to_json)
+            expect_log('GET request to api.4me.com:443/v1/attachments/storage failed: 404: Not Found', :error)
+            expect_log('Attachment upload failed: No provider found', :error)
+            expect { a.upload_attachments!({ note_attachments: ['file1.png'] }) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
           end
 
           it 'should upload' do
@@ -62,7 +62,7 @@ describe Sdk4me::Attachments do
                 x_4me_signature: 'foobar'
               }
             }
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
             expect(a).to(receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } })
             expect(a).to(receive(:upload_attachment).with('/tmp/file2.zip').ordered { { key: 'attachments/5/requests/000/000/777/abc/file2.zip', filesize: 9876 } })
@@ -93,16 +93,16 @@ describe Sdk4me::Attachments do
             expect(data).to eq({ note: '[note_attachments: 0]' })
           end
 
-          it 'should raise an error if no attachment may be uploaded' do
+          it 'should raise an error if no attachment provider can be determined' do
             a = attachments(authentication, '/requests')
             expect(@client).not_to receive(:send_file)
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 404, body: { message: 'Not Found' }.to_json)
-            expect_log('GET request to api.4me.com:443/v1/requests/attachment_upload failed: 404: Not Found', :error)
-            expect_log('Attachments not supported for /requests', :error)
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 404, body: { message: 'Not Found' }.to_json)
+            expect_log('GET request to api.4me.com:443/v1/attachments/storage failed: 404: Not Found', :error)
+            expect_log('Attachment upload failed: No provider found', :error)
             data = {
               note: '[note_attachments: 0]', note_attachments: ['/tmp/doesnotexist.log']
             }
-            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachments not supported for /requests')
+            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
           end
 
           it 'should upload' do
@@ -116,7 +116,7 @@ describe Sdk4me::Attachments do
                 x_4me_signature: 'foobar'
               }
             }
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
             expect(a).to(receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } })
             expect(a).to(receive(:upload_attachment).with('/tmp/file2.jpg').ordered { { key: 'attachments/5/requests/000/000/777/abc/file2.jpg', filesize: 9876 } })
@@ -151,7 +151,7 @@ describe Sdk4me::Attachments do
                 x_4me_signature: 'foobar'
               }
             }
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
             expect(a).to(receive(:upload_attachment).with('/tmp/file3.log').ordered { { key: 'attachments/5/requests/000/000/777/abc/file3.log', filesize: 5678 } })
             expect(a).to(receive(:upload_attachment).with('/tmp/file1.png').ordered { { key: 'attachments/5/requests/000/000/777/abc/file1.png', filesize: 1234 } })
@@ -186,7 +186,7 @@ describe Sdk4me::Attachments do
                 x_4me_signature: 'foobar'
               }
             }
-            stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+            stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
 
             expect_log('Attachment upload failed: file does not exist: /tmp/doesnotexist.png', :error)
 
@@ -211,7 +211,7 @@ describe Sdk4me::Attachments do
               x_4me_signature: 'foobar'
             }
           }
-          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+          stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
         end
 
         it 'should raise an error when the file could not be found' do
@@ -240,7 +240,7 @@ describe Sdk4me::Attachments do
               x_amz_signature: 'nbhdec4k='
             }
           }
-          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+          stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
         end
 
         it 'should upload a file from disk' do
@@ -307,7 +307,7 @@ describe Sdk4me::Attachments do
               x_4me_signature: 'foobar'
             }
           }
-          stub_request(:get, 'https://api.4me.com/v1/requests/attachment_upload').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
+          stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 200, body: resp.to_json)
         end
 
         it 'should upload a file from disk' do

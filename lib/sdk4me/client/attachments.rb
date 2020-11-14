@@ -75,13 +75,7 @@ module Sdk4me
     end
 
     def storage
-      @storage ||= @client.get("#{@path}/attachment_upload")
-                          .json
-                          .with_indifferent_access
-                          .tap do |storage|
-                            storage[:provider] ||
-                              raise_error("Attachments not supported for #{@path}")
-                          end
+      @storage ||= @client.get('/attachments/storage').json.with_indifferent_access
     end
 
     # Upload a single attachment and return the data that should be submitted
@@ -91,6 +85,7 @@ module Sdk4me
       return nil unless attachment
 
       provider = storage[:provider]
+      raise 'No provider found' unless provider
 
       # attachment is already a file or we need to open the file from disk
       unless attachment.respond_to?(:path) && attachment.respond_to?(:read)
