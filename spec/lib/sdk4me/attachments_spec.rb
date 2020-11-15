@@ -260,10 +260,10 @@ describe Sdk4me::Attachments do
                   'User-Agent' => "Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/523.10.6 (KHTML, like Gecko) Version/3.0.4 Safari/523.10.6 4me/#{Sdk4me::Client::VERSION}"
                 }
               )
-              .to_return(status: 200, body: '', headers: {})
+              .to_return(status: 200, headers: {}, body: %(<?xml version="1.0" encoding="UTF-8"?>\n<PostResponse><Location>foo</Location><Bucket>example</Bucket><Key>attachments/5/zxxb4ot60xfd6sjg/s3test.txt</Key><ETag>"bar"</ETag></PostResponse>))
 
             expect(a.send(:upload_attachment, file.path)).to eq({
-                                                                  key: "attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/#{File.basename(file.path)}",
+                                                                  key: 'attachments/5/zxxb4ot60xfd6sjg/s3test.txt',
                                                                   filesize: 6
                                                                 })
           end

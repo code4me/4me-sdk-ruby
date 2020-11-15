@@ -97,11 +97,11 @@ module Sdk4me
       key_template = storage[provider][:key]
       key = key_template.sub(FILENAME_TEMPLATE, File.basename(attachment.path))
 
-      if provider == S3_PROVIDER
-        upload_to_s3(key, attachment)
-      else
-        upload_to_4me_local(key, attachment)
-      end
+      key = if provider == S3_PROVIDER
+              upload_to_s3(key, attachment)
+            else
+              upload_to_4me_local(key, attachment)
+            end
 
       # return the values for the attachments param
       { key: key, filesize: File.size(attachment.path) }
@@ -118,6 +118,8 @@ module Sdk4me
       xml = response.body || ''
       error = xml[%r{<Error>.*<Message>(.*)</Message>.*</Error>}, 1]
       raise "AWS S3 upload to #{uri} for #{key} failed: #{error}" if error
+
+      xml[%r{<Key>(.*)</Key>}, 1]
     end
 
     # Upload the file directly to 4me local storage
@@ -125,6 +127,8 @@ module Sdk4me
       uri = storage[:upload_uri]
       response = send_file(uri, storage[:local].merge({ file: attachment }), @client.send(:expand_header))
       raise "4me upload to #{uri} for #{key} failed: #{response.message}" unless response.valid?
+
+      key
     end
 
     def send_file(uri, params, basic_auth_header = {})
