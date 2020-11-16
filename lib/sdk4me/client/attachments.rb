@@ -128,7 +128,7 @@ module Sdk4me
       response = send_file(uri, storage[:local].merge({ file: attachment }), @client.send(:expand_header))
       raise "4me upload to #{uri} for #{key} failed: #{response.message}" unless response.valid?
 
-      key
+      JSON.parse(response.body)['key']
     end
 
     def send_file(uri, params, basic_auth_header = {})
