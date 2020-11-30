@@ -32,7 +32,7 @@ module Sdk4me
     #      data = {
     #        note: "Hello ![](storage/abc/adjhajdhjaadf.png) and ![](storage/abc/fskdhakjfkjdssdf.png])",
     #        note_attachments: [
-    #          { key: 'storage/abc/fskdhakjfkjdssdf.png', filesize: 12345, inline: true },
+    #          { key: 'storage/abc/adjhajdhjaadf.png', filesize: 12345, inline: true },
     #          { key: 'storage/abc/fskdhakjfkjdssdf.png'], filesize: 98765, inline: true }
     #        ],
     #        ...
