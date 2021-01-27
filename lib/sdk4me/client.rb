@@ -216,9 +216,8 @@ module Sdk4me
       request
     end
 
-    URI_ESCAPE_PATTERN = Regexp.new("[^#{URI::PATTERN::UNRESERVED}]")
     def uri_escape(value)
-      URI.escape(value, URI_ESCAPE_PATTERN).gsub('.', '%2E')
+      URI.encode_www_form_component(value).gsub('+', '%20').gsub('.', '%2E')
     end
 
     # Expand the given header with the default header
