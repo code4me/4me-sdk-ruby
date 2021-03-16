@@ -66,7 +66,8 @@ module Sdk4me
       def to_multipart
         # If we can tell the possible mime-type from the filename, use the first in the list; otherwise, use "application/octet-stream"
         mime_type = MIME::Types.type_for(filename)[0] || MIME::Types['application/octet-stream'][0]
-        %(Content-Disposition: form-data; name="#{CGI.escape(k.to_s)}"; filename="#{filename}"\r\nContent-Type: #{mime_type.simplified}\r\n\r\n#{content}\r\n)
+        %(Content-Disposition: form-data; name="#{CGI.escape(k.to_s)}"; filename="#{filename}"\r\n) +
+          %(Content-Type: #{mime_type.simplified}\r\n\r\n#{content.force_encoding('UTF-8')}\r\n)
       end
     end
   end

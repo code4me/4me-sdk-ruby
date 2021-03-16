@@ -311,7 +311,7 @@ describe Sdk4me::Attachments do
         end
 
         it 'should upload a file from disk' do
-          Tempfile.create('4me_attachments_spec.txt') do |file|
+          Tempfile.create('4me_我attáchments_spec.txt') do |file|
             file << 'foobar'
             file.flush
 

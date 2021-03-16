@@ -12,7 +12,7 @@ describe 'ca-bundle.crt' do
     expect(response.valid?).to be_falsey
 
     # expecting 401 error
-    expect(response.message).to eq('401: Bad credentials')
+    expect(response.message).to start_with('401:')
   end
 
   it 'should be able to connect to the 4me REST API (access token)' do
@@ -26,7 +26,7 @@ describe 'ca-bundle.crt' do
     expect(response.valid?).to be_falsey
 
     # expecting 401 error
-    expect(response.message).to eq('401: Bad credentials')
+    expect(response.message).to start_with('401:')
   end
 
   it 'should be able to connect to S3' do
