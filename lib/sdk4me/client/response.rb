@@ -98,14 +98,14 @@ module Sdk4me
       @total_entries ||= @response.header['X-Pagination-Total-Entries'].to_i
     end
 
-    # pagination urls (full paths with server) - relations :first, :prev, :next, :last
+    # pagination urls (full paths with server) - relations :first, :prev
     # Link: <https://api.4me.com/v1/requests?page=1&per_page=25>; rel="first", <https://api.4me.com/v1/requests?page=2&per_page=25>; rel="prev", etc.
     def pagination_link(relation)
       # split on ',' select the [url] in '<[url]>; rel="[relation]"', compact to all url's found (at most one) and take the first
       (@pagination_links ||= {})[relation] ||= @response.header['Link'] && @response.header['Link'].split(/,\s*<?/).map { |link| link[/^\s*<?(.*?)>?;\s*rel="#{relation}"\s*$/, 1] }.compact.first
     end
 
-    # pagination urls (relative paths without server) - relations :first, :prev, :next, :last
+    # pagination urls (relative paths without server) - relations :first, :prev, :next
     def pagination_relative_link(relation)
       (@pagination_relative_links ||= {})[relation] ||= pagination_link(relation) && pagination_link(relation)[%r{^https?://[^/]*(.*)}, 1]
     end

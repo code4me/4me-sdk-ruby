@@ -140,7 +140,6 @@ puts "total number of records #{response.total_entries}"
 first_page = @client.get(response.pagination_link(:first))
 prev_page  = @client.get(response.pagination_link(:prev))
 next_page  = @client.get(response.pagination_link(:next))
-last_page  = @client.get(response.pagination_link(:last))
 ```
 
 By default this call will return all [collection fields](https://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
