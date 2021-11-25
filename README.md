@@ -129,17 +129,16 @@ If you really want to [paginate](https://developer.4me.com/v1/general/pagination
 
 ```
 @client = Sdk4me::Client.new
-response = @client.get('organizations', {per_page: 10, page: 2})
+response = @client.get('organizations', { per_page: 100 })
 
 puts response.json # all data in an array
 
 puts "showing page #{response.current_page}/#{response.total_pages}, with #{response.per_page} records per page"
 puts "total number of records #{response.total_entries}"
 
-# retrieve collection for other pages directly from the response
-first_page = @client.get(response.pagination_link(:first))
-prev_page  = @client.get(response.pagination_link(:prev))
-next_page  = @client.get(response.pagination_link(:next))
+# retrieve collection for previous and next pages directly from the response
+prev_page = @client.get(response.pagination_relative_link(:prev))
+next_page = @client.get(response.pagination_relative_link(:next))
 ```
 
 By default this call will return all [collection fields](https://developer.4me.com/v1/organizations/#collection-fields) for each Organization.
@@ -147,7 +146,7 @@ For more fields, check out the [field selection](https://developer.4me.com/v1/ge
 
 The fields can be accessed using *symbols* and *strings*, and it is possible chain a number of keys in one go:
 ```
-response = Sdk4me::Client.new.get('organizations', {per_page: 10, page: 2, fields: 'parent'})
+response = Sdk4me::Client.new.get('organizations', { per_page: 100, fields: 'parent' })
 puts response[:parent, :name]    # an array with the parent organization names
 puts response['parent', 'name']  # strings are also accepted as keys
 ```
