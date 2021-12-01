@@ -214,7 +214,7 @@ describe Sdk4me::Response do
             'X-Pagination-Current-Page' => 1,
             'X-Pagination-Total-Pages' => 2,
             'X-Pagination-Total-Entries' => 5,
-            'Link' => '<https://api.4me.com/v1/people?page=1&per_page=3>; rel="first",<https://api.4me.com/v1/people?page=2&per_page=3>; rel="next", <https://api.4me.com/v1/people?page=2&per_page=3>; rel="last"'
+            'Link' => '<https://api.4me.com/v1/people?page=1&per_page=3&fields=id,name>; rel="first",<https://api.4me.com/v1/people?fields=id%2Cname&page=2&per_page=3>; rel="next", <https://api.4me.com/v1/people?page=2&per_page=3>; rel="last"'
           }
           allow(@response_array.response).to receive('header') { @pagination_header }
         end
@@ -235,16 +235,16 @@ describe Sdk4me::Response do
           expect(@response_array.total_entries).to eq(5)
         end
 
-        { first: 'https://api.4me.com/v1/people?page=1&per_page=3',
-          next: 'https://api.4me.com/v1/people?page=2&per_page=3',
+        { first: 'https://api.4me.com/v1/people?page=1&per_page=3&fields=id,name',
+          next: 'https://api.4me.com/v1/people?fields=id%2Cname&page=2&per_page=3',
           last: 'https://api.4me.com/v1/people?page=2&per_page=3' }.each do |relation, link|
           it "should define pagination link for :#{relation}" do
             expect(@response_array.pagination_link(relation)).to eq(link)
           end
         end
 
-        { first: '/v1/people?page=1&per_page=3',
-          next: '/v1/people?page=2&per_page=3',
+        { first: '/v1/people?page=1&per_page=3&fields=id,name',
+          next: '/v1/people?fields=id%2Cname&page=2&per_page=3',
           last: '/v1/people?page=2&per_page=3' }.each do |relation, link|
           it "should define pagination relative link for :#{relation}" do
             expect(@response_array.pagination_relative_link(relation)).to eq(link)
