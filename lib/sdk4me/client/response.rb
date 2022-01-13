@@ -103,9 +103,9 @@ module Sdk4me
     def pagination_link(relation)
       # split on ',' select the [url] in '<[url]>; rel="[relation]"', compact to all url's found (at most one) and take the first
       (@pagination_links ||= {})[relation] ||= @response.header['Link'] &&
-        @response.header['Link']
-          .split(/,\s*(?:<|$)/)
-          .map { |link| link[/^\s*<?(.*?)>?;\s*rel="#{relation}"\s*$/, 1] }.compact.first
+                                               @response.header['Link']
+                                                        .split(/,\s*(?:<|$)/)
+                                                        .map { |link| link[/^\s*<?(.*?)>?;\s*rel="#{relation}"\s*$/, 1] }.compact.first
     end
 
     # pagination urls (relative paths without server) - relations :first, :prev, :next
