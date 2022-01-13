@@ -364,8 +364,10 @@ describe Sdk4me::Client do
         stub_request(:post, 'https://api.4me.com/v1/import').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: { token: '68ef5ef0f64c0' }.to_json)
         progress_stub = stub_request(:get, 'https://api.4me.com/v1/import/68ef5ef0f64c0').with(credentials(authentication)).to_return(@import_queued_response, @import_processing_response, @import_failed_response)
 
-        expect { client(authentication).import("#{@fixture_dir}/people.csv", 'people', true) }.to raise_error(Sdk4me::Exception, 'Unable to monitor progress for people import. Invalid byte sequence in UTF-8 on line 2')
-        expect(progress_stub).to have_been_requested.times(4)
+        response = client(authentication).import("#{@fixture_dir}/people.csv", 'people', true)
+        expect(response.valid?).to be_falsey
+        expect(response[:message]).to eq('Invalid byte sequence in UTF-8 on line 2')
+        expect(progress_stub).to have_been_requested.times(3)
       end
 
       it 'should not continue when there is an error connecting to 4me' do
@@ -388,6 +390,16 @@ describe Sdk4me::Client do
       it 'should raise an UploadFailed exception in case waiting for progress is true' do
         stub_request(:post, 'https://api.4me.com/v1/import').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: { message: 'oops!' }.to_json)
         expect { client(authentication).import("#{@fixture_dir}/people.csv", 'people', true) }.to raise_error(Sdk4me::UploadFailed, 'Failed to queue people import. oops!')
+      end
+
+      it 'should return the error response when the import state is set to error' do
+        stub_request(:post, 'https://api.4me.com/v1/import').with(credentials(authentication)).with(body: @multi_part_body, headers: @multi_part_headers).to_return(body: { token: '68ef5ef0f64c0' }.to_json)
+        stub_request(:get, 'https://api.4me.com/v1/import/68ef5ef0f64c0').with(credentials(authentication)).to_return(body: { state: 'error', message: 'Too many import failures', logfile: 'foo' }.to_json)
+
+        response = client(authentication).import("#{@fixture_dir}/people.csv", 'people', true)
+        expect(response.valid?).to be_falsey
+        expect(response[:message]).to eq('Too many import failures')
+        expect(response[:logfile]).to eq('foo')
       end
     end
 
@@ -479,6 +491,16 @@ describe Sdk4me::Client do
       it 'should raise an UploadFailed exception in case waiting for progress is true' do
         stub_request(:post, 'https://api.4me.com/v1/export').with(credentials(authentication)).with(body: { type: 'people' }).to_return(body: { message: 'oops!' }.to_json)
         expect { client(authentication).export('people', nil, true) }.to raise_error(Sdk4me::UploadFailed, "Failed to queue 'people' export. oops!")
+      end
+
+      it 'should return the error response when the export state is set to error' do
+        stub_request(:post, 'https://api.4me.com/v1/export').with(credentials(authentication)).with(body: { type: 'people' }).to_return(body: { token: '68ef5ef0f64c0' }.to_json)
+        stub_request(:get, 'https://api.4me.com/v1/export/68ef5ef0f64c0').with(credentials(authentication)).to_return(body: { state: 'error', message: 'Too many export failures', logfile: 'foo' }.to_json)
+
+        response = client(authentication).export('people', nil, true)
+        expect(response.valid?).to be_falsey
+        expect(response[:message]).to eq('Too many export failures')
+        expect(response[:logfile]).to eq('foo')
       end
     end
 

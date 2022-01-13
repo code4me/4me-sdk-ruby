@@ -263,7 +263,10 @@ begin
   response = Sdk4me::Client.new.import('\tmp\people.csv', 'people', true)
   puts response[:state]
   puts response[:results]
-  puts response[:message]
+  puts response[:logfile]
+  unless response.valid?
+    puts "Import completed with errors: #{response[:message]}"
+  end
 catch Sdk4me::UploadFailed => ex
   puts "Could not upload the people import file: #{ex.message}"
 catch Sdk4me::Exception => ex
@@ -299,8 +302,13 @@ require 'open-uri'
 begin
   response = Sdk4me::Client.new.export(['people', 'people_contact_details'], nil, true)
   puts response[:state]
-  # write the export file to disk
-  File.open('/tmp/export.zip', 'wb') { |f| f.write(open(response[:url]).read) }
+  if response.valid?
+    # write the export file to disk
+    File.open('/tmp/export.zip', 'wb') { |f| f.write(open(response[:url]).read) }
+  else
+    puts "Export failed with errors: #{response[:message]}"
+    puts response[:logfile]
+  end
 catch Sdk4me::UploadFailed => ex
   puts "Could not queue the people export: #{ex.message}"
 catch Sdk4me::Exception => ex

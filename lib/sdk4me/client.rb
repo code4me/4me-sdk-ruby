@@ -145,9 +145,13 @@ module Sdk4me
         token = response[:token]
         loop do
           response = get("/import/#{token}")
+          return response if response[:state] == 'error'
+
           unless response.valid?
             sleep(5)
             response = get("/import/#{token}") # single retry to recover from a network error
+            return response if response[:state] == 'error'
+
             raise ::Sdk4me::Exception, "Unable to monitor progress for #{type} import. #{response.message}" unless response.valid?
           end
           # wait 30 seconds while the response is OK and import is still busy
@@ -186,9 +190,13 @@ module Sdk4me
         token = response[:token]
         loop do
           response = get("/export/#{token}")
+          return response if response[:state] == 'error'
+
           unless response.valid?
             sleep(5)
             response = get("/export/#{token}") # single retry to recover from a network error
+            return response if response[:state] == 'error'
+
             raise ::Sdk4me::Exception, "Unable to monitor progress for '#{data[:type]}' export. #{response.message}" unless response.valid?
           end
           # wait 30 seconds while the response is OK and export is still busy
