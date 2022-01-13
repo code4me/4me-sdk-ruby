@@ -361,4 +361,4 @@ The changelog is available [here](CHANGELOG.md).
 
 ## Copyright
 
-Copyright (c) 2020 4me, Inc. See [LICENSE](LICENSE) for further details.
+Copyright (c) 2022 4me, Inc. See [LICENSE](LICENSE) for further details.
