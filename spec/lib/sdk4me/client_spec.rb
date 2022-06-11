@@ -144,7 +144,7 @@ describe Sdk4me::Client do
       end
 
       it 'should accept headers in the each call' do
-        stub = stub_request(:get, 'https://api.4me.com/v1/requests?fields=subject&page=1&per_page=100').with(credentials(authentication)).with(headers: { 'X-4me-Secret' => 'special' }).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }, { id: 3, subject: 'Subject 3' }].to_json)
+        stub = stub_request(:get, 'https://api.4me.com/v1/requests?fields=subject&per_page=100').with(credentials(authentication)).with(headers: { 'X-4me-Secret' => 'special' }).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }, { id: 3, subject: 'Subject 3' }].to_json)
         client(authentication).each('requests', { fields: 'subject' }, { 'X-4me-Secret' => 'special' }) do |request|
           expect(request[:subject]).to eq("Subject #{request[:id]}")
         end
@@ -154,7 +154,7 @@ describe Sdk4me::Client do
 
     context 'each' do
       it 'should yield each result' do
-        stub_request(:get, 'https://api.4me.com/v1/requests?fields=subject&page=1&per_page=100').with(credentials(authentication)).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }, { id: 3, subject: 'Subject 3' }].to_json)
+        stub_request(:get, 'https://api.4me.com/v1/requests?fields=subject&per_page=100').with(credentials(authentication)).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }, { id: 3, subject: 'Subject 3' }].to_json)
         nr_of_requests = client(authentication).each('requests', { fields: 'subject' }) do |request|
           expect(request[:subject]).to eq("Subject #{request[:id]}")
         end
@@ -162,7 +162,7 @@ describe Sdk4me::Client do
       end
 
       it 'should retrieve multiple pages' do
-        stub_page1 = stub_request(:get, 'https://api.4me.com/v1/requests?page=1&per_page=2').with(credentials(authentication)).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }].to_json, headers: { 'Link' => '<https://api.4me.com/v1/requests?page=1&per_page=2>; rel="first",<https://api.4me.com/v1/requests?page=2&per_page=2>; rel="next",<https://api.4me.com/v1/requests?page=2&per_page=2>; rel="last"' })
+        stub_page1 = stub_request(:get, 'https://api.4me.com/v1/requests?per_page=2').with(credentials(authentication)).to_return(body: [{ id: 1, subject: 'Subject 1' }, { id: 2, subject: 'Subject 2' }].to_json, headers: { 'Link' => '<https://api.4me.com/v1/requests?page=1&per_page=2>; rel="first",<https://api.4me.com/v1/requests?page=2&per_page=2>; rel="next",<https://api.4me.com/v1/requests?page=2&per_page=2>; rel="last"' })
         stub_page2 = stub_request(:get, 'https://api.4me.com/v1/requests?page=2&per_page=2').with(credentials(authentication)).to_return(body: [{ id: 3, subject: 'Subject 3' }].to_json, headers: { 'Link' => '<https://api.4me.com/v1/requests?page=1&per_page=2>; rel="first",<https://api.4me.com/v1/requests?page=1&per_page=2>; rel="prev",<https://api.4me.com/v1/requests?page=2&per_page=2>; rel="last"' })
         nr_of_requests = client(authentication).each('requests', { per_page: 2 }) do |request|
           expect(request[:subject]).to eq("Subject #{request[:id]}")

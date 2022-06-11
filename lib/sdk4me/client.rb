@@ -88,7 +88,7 @@ module Sdk4me
     # Returns total nr of resources yielded (for logging)
     def each(path, params = {}, header = {}, &block)
       # retrieve the resources using the max page size (least nr of API calls)
-      next_path = expand_path(path, { per_page: MAX_PAGE_SIZE, page: 1 }.merge(params))
+      next_path = expand_path(path, { per_page: MAX_PAGE_SIZE }.merge(params))
       size = 0
       while next_path
         # retrieve the records (with retry and optionally wait for rate-limit)
