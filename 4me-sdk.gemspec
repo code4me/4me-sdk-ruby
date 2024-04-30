@@ -3,6 +3,8 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'sdk4me/client/version'
 
 Gem::Specification.new do |spec|
+  spec.metadata['rubygems_mfa_required'] = 'true'
+
   spec.name                  = '4me-sdk'
   spec.version               = Sdk4me::Client::VERSION
   spec.platform              = Gem::Platform::RUBY
