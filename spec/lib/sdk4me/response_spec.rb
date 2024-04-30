@@ -2,13 +2,12 @@ require 'spec_helper'
 
 describe Sdk4me::Response do
   def client(authentication)
-    (@client ||= {})[authentication] ||= begin
+    (@client ||= {})[authentication] ||=
       if authentication == :api_token
         Sdk4me::Client.new(api_token: 'secret', max_retry_time: -1, block_at_rate_limit: false)
       else
         Sdk4me::Client.new(access_token: 'secret', max_retry_time: -1, block_at_rate_limit: false)
       end
-    end
   end
 
   def credentials(authentication)
