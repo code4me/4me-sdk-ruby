@@ -32,7 +32,7 @@ RSpec::Matchers.define :never_raise do |exception_class|
     # (also, no pretty error messages here)
     raise
   else
-    true   # everything ran, nothing raised at all, thus code did in fact not raise anything
+    true # everything ran, nothing raised at all, thus code did in fact not raise anything
   end
 
   failure_message do |_player|
