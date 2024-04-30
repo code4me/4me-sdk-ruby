@@ -22,7 +22,6 @@ Gem::Specification.new do |spec|
     4me-sdk.gemspec
   ]
   spec.executables   = `git ls-files -- bin/*`.split("\n").map { |f| File.basename(f) }
-  spec.test_files    = `git ls-files -- {test,spec}/*`.split("\n")
   spec.require_paths = ['lib']
   spec.rdoc_options = ['--charset=UTF-8']
 
