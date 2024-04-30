@@ -48,7 +48,7 @@ describe Sdk4me::Attachments do
             stub_request(:get, 'https://api.4me.com/v1/attachments/storage').with(credentials(authentication)).to_return(status: 404, body: { message: 'Not Found' }.to_json)
             expect_log('GET request to api.4me.com:443/v1/attachments/storage failed: 404: Not Found', :error)
             expect_log('Attachment upload failed: No provider found', :error)
-            expect { a.upload_attachments!({ note_attachments: ['file1.png'] }) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
+            expect { a.upload_attachments!({ note_attachments: ['file1.png'] }) }.to raise_error(Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
           end
 
           it 'should upload' do
@@ -102,7 +102,7 @@ describe Sdk4me::Attachments do
             data = {
               note: '[note_attachments: 0]', note_attachments: ['/tmp/doesnotexist.log']
             }
-            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
+            expect { a.upload_attachments!(data) }.to raise_error(Sdk4me::UploadFailed, 'Attachment upload failed: No provider found')
           end
 
           it 'should upload' do
@@ -195,7 +195,7 @@ describe Sdk4me::Attachments do
               note: 'Foo [note_attachments: 2] Bar [note_attachments: 1]',
               note_attachments: ['/tmp/doesnotexist.png']
             }
-            expect { a.upload_attachments!(data) }.to raise_error(::Sdk4me::UploadFailed, 'Attachment upload failed: file does not exist: /tmp/doesnotexist.png')
+            expect { a.upload_attachments!(data) }.to raise_error(Sdk4me::UploadFailed, 'Attachment upload failed: file does not exist: /tmp/doesnotexist.png')
           end
         end
       end
@@ -219,7 +219,7 @@ describe Sdk4me::Attachments do
           expect(@client).not_to receive(:send_file)
           message = 'Attachment upload failed: file does not exist: /tmp/unknown_file'
           expect_log(message, :error)
-          expect { a.send(:upload_attachment, '/tmp/unknown_file') }.to raise_error(::Sdk4me::UploadFailed, message)
+          expect { a.send(:upload_attachment, '/tmp/unknown_file') }.to raise_error(Sdk4me::UploadFailed, message)
         end
       end
 
@@ -291,7 +291,7 @@ describe Sdk4me::Attachments do
             key = "attachments/5/reqs/000/070/451/zxxb4ot60xfd6sjg/#{File.basename(file.path)}"
             message = "Attachment upload failed: AWS S3 upload to https://example.s3-accelerate.amazonaws.com/ for #{key} failed: Foo Bar Failure"
             # expect_log(message, :error)
-            expect { a.send(:upload_attachment, file.path) }.to raise_error(::Sdk4me::UploadFailed, message)
+            expect { a.send(:upload_attachment, file.path) }.to raise_error(Sdk4me::UploadFailed, message)
           end
         end
       end

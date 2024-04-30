@@ -6,7 +6,7 @@ describe Sdk4me do
 
     expect(conf.keys.sort).to eq(%i[access_token account api_token api_version block_at_rate_limit ca_file host logger max_retry_time max_throttle_time proxy_host proxy_password proxy_port proxy_user read_timeout source])
 
-    expect(conf[:logger].class).to eq(::Logger)
+    expect(conf[:logger].class).to eq(Logger)
     expect(conf[:host]).to eq('https://api.4me.com')
     expect(conf[:api_version]).to eq('v1')
 
@@ -24,10 +24,10 @@ describe Sdk4me do
   end
 
   it 'should define a logger' do
-    expect(Sdk4me.logger.class).to eq(::Logger)
+    expect(Sdk4me.logger.class).to eq(Logger)
   end
 
   it 'should define an exception class' do
-    expect { raise ::Sdk4me::Exception, 'test' }.to raise_error('test')
+    expect { raise Sdk4me::Exception, 'test' }.to raise_error('test')
   end
 end
