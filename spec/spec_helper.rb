@@ -30,7 +30,7 @@ Dir["#{dir}/support/**/*.rb"].sort.each { |f| require f }
 RSpec.configure do |config|
   config.before(:each) do
     log_dir = "#{File.dirname(__FILE__)}/log"
-    Dir.mkdir(log_dir) unless File.exist?(log_dir)
+    FileUtils.mkdir_p(log_dir)
     Sdk4me.configuration.logger = Logger.new("#{log_dir}/test.log")
     @spec_dir = dir
     @fixture_dir = "#{dir}/support/fixtures"
