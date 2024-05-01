@@ -9,7 +9,7 @@ RSpec::Core::RakeTask.new(:spec)
 
 desc 'Run rubocop'
 task :rubocop do
-  sh 'rubocop -f s'
+  sh 'rubocop --format simple'
 end
 
 desc 'Run the specs.'
