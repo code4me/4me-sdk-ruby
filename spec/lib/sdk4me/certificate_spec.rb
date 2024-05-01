@@ -35,7 +35,7 @@ describe 'ca-bundle.crt' do
     http.read_timeout = 1
     http.use_ssl = true
 
-    # no SSL error please
-    expect { http.start { |transport| transport.request(Net::HTTP::Get.new('/exports/20141107/')) } }.to never_raise(OpenSSL::SSL::SSLError)
+    # no OpenSSL::SSL::SSLError please
+    expect { http.start { |transport| transport.request(Net::HTTP::Get.new('/exports/20141107/')) } }.not_to raise_error
   end
 end
