@@ -609,6 +609,13 @@ describe Sdk4me::Client do
     context 'logger' do
       it 'should be possible to override the default logger' do
         logger = Logger.new($stdout)
+        if authentication == :api_token
+          expect_log(
+            'DEPRECATED: Use of api_token is deprecated, switch to using access_token instead. -- https://developer.4me.com/v1/#authentication',
+            :info,
+            logger
+          )
+        end
         logger_client = client(authentication, max_retry_time: -1, logger: logger)
         stub_request(:get, 'https://api.4me.com/v1/me').with(credentials(authentication)).to_return(body: { name: 'my name' }.to_json)
         expect_log('Sending GET request to api.4me.com:443/v1/me', :debug, logger)

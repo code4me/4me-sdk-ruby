@@ -72,7 +72,7 @@ module Sdk4me
         if option(:api_token).blank?
           raise ::Sdk4me::Exception, 'Missing required configuration option access_token'
         else
-          @logger.info('DEPRECATED: Use of api_token is deprecated, switch to using access_token instead. -- https://developer.4me.com/v1/#authentication')
+          @logger.info { 'DEPRECATED: Use of api_token is deprecated, switch to using access_token instead. -- https://developer.4me.com/v1/#authentication' }
         end
       end
       @ssl_verify_none = options[:ssl_verify_none]
